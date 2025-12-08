@@ -1,0 +1,4 @@
+repository "HaulorFaul_NGO_V1 2025-12-04_11-16-44/HaulorFaul_NGO_V1@18966955636658@cloud"
+  path "/"
+    br "/main"
+    co "/main"
