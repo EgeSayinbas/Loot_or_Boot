@@ -69,7 +69,7 @@ public class HeadLookController : NetworkBehaviour
         netPitch.OnValueChanged += OnNetPitchChanged;
     }
 
-    private void OnDestroy()
+    private void OnDestroyCstm()
     {
         netYaw.OnValueChanged -= OnNetYawChanged;
         netPitch.OnValueChanged -= OnNetPitchChanged;

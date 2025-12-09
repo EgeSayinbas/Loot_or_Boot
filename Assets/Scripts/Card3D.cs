@@ -1,41 +1,30 @@
 using UnityEngine;
-using Unity.Netcode;
 
-public class Card3D : NetworkBehaviour
+[RequireComponent(typeof(Collider))]
+public class Card3D : MonoBehaviour
 {
-    public int cardIndex;        // Merkezdeyse 0–3, eldeyse 0–3
-    public bool isCenterCard;
-    public int ownerSeat = -1;   // El kartýysa hangi seat
-
-    private Renderer rend;
+    public CardView View { get; private set; }
 
     private void Awake()
     {
-        rend = GetComponentInChildren<Renderer>();
+        View = GetComponent<CardView>();
+        if (View == null)
+        {
+            Debug.LogWarning("[Card3D] CardView bulunamadý.");
+        }
     }
 
     private void OnMouseDown()
     {
-        if (!IsOwner && NetworkManager.Singleton.IsClient)
+        if (!Application.isPlaying)
             return;
 
-        if (isCenterCard)
+        if (KempsInputController.Instance == null)
         {
-            KempsGameManager.Instance
-                .RequestReserveCenterCardServerRpc(cardIndex);
+            Debug.LogWarning("[Card3D] KempsInputController.Instance yok, týklama iþlenemedi.");
+            return;
         }
-        else
-        {
-            KempsGameManager.Instance
-                .RequestSwapHandCardServerRpc(cardIndex);
-        }
-    }
 
-    public void SetHighlight(bool active)
-    {
-        if (rend == null) return;
-
-        rend.material.color = active ? Color.yellow : Color.white;
+        KempsInputController.Instance.OnCardClicked(this);
     }
 }
-

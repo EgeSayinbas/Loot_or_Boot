@@ -1,14 +1,19 @@
 using UnityEngine;
 
-[CreateAssetMenu(menuName = "Kemps/Art Card Data")]
+[CreateAssetMenu(menuName = "Kemps/Art Card Data", fileName = "NewArtCardData")]
 public class ArtCardData : ScriptableObject
 {
-    [Header("ID Bilgileri")]
-    public string cardId;   // Örn: "MonaLisa_Piece0"
-    public string setId;    // Örn: "MonaLisa"
-    [Range(0, 3)]
-    public int pieceIndex;  // 0–3 arasý parça indexi
+    [Header("ID / Name")]
+    public string cardId;           // Örn: "MonaLisa_0"
+    public string displayName;      // Örn: "Mona Lisa Fragment 1"
 
-    [Header("Görsel")]
-    public Texture2D artwork;   // Sprite yapýlabilir// 3D kartýn ön yüzünde kullanacaðýz
+    [Header("Artwork Info")]
+    public string artworkName;      // Örn: "Mona Lisa"
+    public string artistName;       // Örn: "Leonardo da Vinci"
+    [TextArea(2, 4)]
+    public string description;      // Kýsa açýklama
+
+    [Header("Visuals")]
+    public Sprite artworkSprite;    // UI'de göstermek istersen
+    public Material cardMaterial;   // 3D kartýn material'i (opsiyonel)
 }

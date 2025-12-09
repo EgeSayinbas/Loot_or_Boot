@@ -55,7 +55,7 @@ public class LobbyManager : NetworkBehaviour
         RefreshUI();
     }
 
-    private void OnDestroy()
+    private void OnDestroycustom()
     {
         if (IsServer && NetworkManager.Singleton != null)
         {
@@ -141,8 +141,13 @@ public class LobbyManager : NetworkBehaviour
     private void RebuildPlayerList()
     {
         players.Clear();
-        players.AddRange(FindObjectsOfType<NetworkPlayer>());
-        // CS0618 sadece uyarı, şimdilik sorun değil
+
+        // Yeni API
+        var foundPlayers = Object.FindObjectsByType<NetworkPlayer>(
+            FindObjectsSortMode.None
+        );
+
+        players.AddRange(foundPlayers);
     }
 
     [ClientRpc]

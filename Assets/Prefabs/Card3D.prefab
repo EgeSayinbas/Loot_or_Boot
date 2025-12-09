@@ -12,9 +12,10 @@ GameObject:
   - component: {fileID: 199694310807870192}
   - component: {fileID: 1640518396548046413}
   - component: {fileID: 1798658859747806784}
-  - component: {fileID: -8333087977913861093}
   - component: {fileID: 3900271509217968900}
+  - component: {fileID: 4182001668321078662}
   - component: {fileID: 5801057006788500251}
+  - component: {fileID: -8333087977913861093}
   m_Layer: 0
   m_Name: Card3D
   m_TagString: Untagged
@@ -114,18 +115,6 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 1, y: 1, z: 1}
   m_Center: {x: 0, y: 0, z: 0}
---- !u!114 &-8333087977913861093
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8373563559733652702}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d86d3ac96c2da5e4d8a7764258996c5c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CardView
 --- !u!114 &3900271509217968900
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -149,6 +138,37 @@ MonoBehaviour:
   AutoObjectParentSync: 1
   SyncOwnerTransformWhenParented: 1
   AllowOwnerToParent: 0
+--- !u!114 &4182001668321078662
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8373563559733652702}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e96cb6065543e43c4a752faaa1468eb1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.Netcode.Components::Unity.Netcode.Components.NetworkTransform
+  UseUnreliableDeltas: 0
+  SyncPositionX: 1
+  SyncPositionY: 1
+  SyncPositionZ: 1
+  SyncRotAngleX: 1
+  SyncRotAngleY: 1
+  SyncRotAngleZ: 1
+  SyncScaleX: 1
+  SyncScaleY: 1
+  SyncScaleZ: 1
+  PositionThreshold: 0.001
+  RotAngleThreshold: 0.01
+  ScaleThreshold: 0.01
+  UseQuaternionSynchronization: 0
+  UseQuaternionCompression: 0
+  UseHalfFloatPrecision: 0
+  InLocalSpace: 0
+  Interpolate: 1
+  SlerpPosition: 0
 --- !u!114 &5801057006788500251
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -161,6 +181,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c434b0361de54964d97c726ba5c8d218, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Card3D
-  cardIndex: 0
-  isCenterCard: 0
-  ownerSeat: -1
+--- !u!114 &-8333087977913861093
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8373563559733652702}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d86d3ac96c2da5e4d8a7764258996c5c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CardView
+  zone: 0
+  seatIndex: -1
+  slotIndex: -1

@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+ï»¿using System.Collections.Generic;
 using UnityEngine;
 using Unity.Netcode;
 
@@ -7,15 +7,26 @@ public class KempsGameManager : NetworkBehaviour
     public static KempsGameManager Instance { get; private set; }
 
     [Header("Card Layout Roots")]
-    [SerializeField] private Transform centerCardsRoot;   // CenterCardsRoot
-    [SerializeField] private Transform cardSlotRoot;      // CardSlotRoot (Seat0_HandSlots vb.)
+    [SerializeField] private Transform centerCardsRoot;   // AltÄ±nda CenterSlot0..7
+    [SerializeField] private Transform discardPileRoot;   // Åžimdilik kullanÄ±lmÄ±yor
+    [SerializeField] private Transform cardSlotRoot;      // AltÄ±nda Seat0_HandSlots vb.
 
     [Header("Card Prefab (3D)")]
-    [SerializeField] private GameObject cardPrefab;       // Card3D (üstünde NetworkObject + CardView)
+    [SerializeField] private GameObject cardPrefab;       // NetworkObject + NetworkTransform + CardView + Card3D
 
-    // slot dizileri
-    private Transform[] centerSlots = new Transform[4];       // CenterSlot0..3
-    private Transform[,] handSlots = new Transform[4, 4];     // [seatIndex, slotIndex]
+    [Header("Card Data (ÅŸimdilik boÅŸ kalabilir)")]
+    [SerializeField] private List<ArtCardData> allCards = new List<ArtCardData>();
+
+    // Slot referanslarÄ±
+    private Transform[] centerSlots = new Transform[8];      // CenterSlot0..7
+    private Transform[,] handSlots = new Transform[4, 4];    // [seatIndex, slotIndex]
+
+    // Kart referanslarÄ±
+    private CardView[] centerCards = new CardView[8];        // 0â€“7: tÃ¼m center slotlar
+    private CardView[,] handCards = new CardView[4, 4];      // [seat, handSlot]
+
+    // Her oyuncu iÃ§in bekleyen "elden atÄ±lan slot" (-1 = yok)
+    private int[] pendingSwapHandIndex = new int[4];
 
     private void Awake()
     {
@@ -28,7 +39,7 @@ public class KempsGameManager : NetworkBehaviour
         Instance = this;
     }
 
-    protected new void OnDestroy()
+    private void OnDestroycstm()
     {
         if (Instance == this)
             Instance = null;
@@ -38,26 +49,31 @@ public class KempsGameManager : NetworkBehaviour
     {
         base.OnNetworkSpawn();
 
-        if (!IsServer)
-            return;
+        if (IsServer)
+        {
+            for (int i = 0; i < 4; i++)
+                pendingSwapHandIndex[i] = -1;
 
-        CacheSlotTransforms();
-        Debug.Log("[KempsGameManager] Server OnNetworkSpawn, slotlar cache’lendi.");
+            CacheSlotTransforms();
+            Debug.Log("[KempsGameManager] OnNetworkSpawn (Server) â€“ slotlar cache'lendi.");
 
-        // Þimdilik test: Game sahnesine girer girmez kartlarý spawn et
-        SpawnTestCards();
+            SpawnTestCards();
+        }
+        else
+        {
+            CacheSlotTransforms(); // client tarafÄ±nda da referanslar dolu olsun
+        }
     }
 
     /// <summary>
-    /// CenterCardsRoot ve CardSlotRoot altýndaki slot Transform'larýný cache'ler.
-    /// Bu fonksiyon sadece server tarafýnda çaðrýlýr.
+    /// CenterCardsRoot ve CardSlotRoot altÄ±ndaki slot Transform'larÄ±nÄ± cache'ler.
     /// </summary>
     private void CacheSlotTransforms()
     {
-        // ---- ORTA 4 SLOT ----
+        // ---- ORTA 8 SLOT ----
         if (centerCardsRoot != null)
         {
-            for (int i = 0; i < 4; i++)
+            for (int i = 0; i < 8; i++)
             {
                 Transform child = centerCardsRoot.Find($"CenterSlot{i}");
                 if (child != null)
@@ -66,12 +82,16 @@ public class KempsGameManager : NetworkBehaviour
                 }
                 else
                 {
-                    Debug.LogWarning($"[KempsGameManager] CenterSlot{i} bulunamadý.");
+                    Debug.LogWarning($"[KempsGameManager] CenterSlot{i} bulunamadÄ±.");
                 }
             }
         }
+        else
+        {
+            Debug.LogWarning("[KempsGameManager] centerCardsRoot atanmadÄ±.");
+        }
 
-        // ---- HER SEAT ÝÇÝN EL SLOTLARI ----
+        // ---- HER SEAT Ä°Ã‡Ä°N EL SLOTLARI ----
         if (cardSlotRoot != null)
         {
             for (int seat = 0; seat < 4; seat++)
@@ -79,7 +99,7 @@ public class KempsGameManager : NetworkBehaviour
                 Transform seatRoot = cardSlotRoot.Find($"Seat{seat}_HandSlots");
                 if (seatRoot == null)
                 {
-                    Debug.LogWarning($"[KempsGameManager] Seat{seat}_HandSlots bulunamadý.");
+                    Debug.LogWarning($"[KempsGameManager] Seat{seat}_HandSlots bulunamadÄ±.");
                     continue;
                 }
 
@@ -92,37 +112,41 @@ public class KempsGameManager : NetworkBehaviour
                     }
                     else
                     {
-                        Debug.LogWarning($"[KempsGameManager] Seat{seat}_Slot{slot} bulunamadý.");
+                        Debug.LogWarning($"[KempsGameManager] Seat{seat}_Slot{slot} bulunamadÄ±.");
                     }
                 }
             }
         }
+        else
+        {
+            Debug.LogWarning("[KempsGameManager] cardSlotRoot atanmadÄ±.");
+        }
     }
 
-    // =======================
-    //  TEST ÝÇÝN KART SPAWN
-    // =======================
-
+    /// <summary>
+    /// Sadece gÃ¶rsel test iÃ§in, ortada ve ellerde dummy kartlar spawn eder.
+    /// </summary>
     private void SpawnTestCards()
     {
-        Debug.Log("[KempsGameManager] SpawnTestCards çaðrýldý (sadece server).");
-
-        if (!IsServer)
-        {
-            Debug.LogWarning("SpawnTestCards sadece server’da çalýþmalý.");
-            return;
-        }
-
         if (cardPrefab == null)
         {
-            Debug.LogError("[KempsGameManager] CardPrefab atanmadý!");
+            Debug.LogWarning("[KempsGameManager] CardPrefab atanmadÄ±ÄŸÄ± iÃ§in test kartlarÄ± spawn edilmedi.");
             return;
         }
 
-        // Ortadaki 4 kart
+        // Dizileri temizle
+        for (int i = 0; i < centerCards.Length; i++)
+            centerCards[i] = null;
+
+        for (int s = 0; s < 4; s++)
+            for (int h = 0; h < 4; h++)
+                handCards[s, h] = null;
+
+        // --- Orta 4 kart (CenterSlot0..3) ---
         for (int i = 0; i < 4; i++)
         {
-            if (centerSlots[i] == null) continue;
+            if (centerSlots[i] == null)
+                continue;
 
             GameObject go = Instantiate(
                 cardPrefab,
@@ -132,25 +156,23 @@ public class KempsGameManager : NetworkBehaviour
 
             var netObj = go.GetComponent<NetworkObject>();
             if (netObj != null)
-            {
-                netObj.Spawn(); // <<< BÜTÜN CLIENT’LARA GÖNDEREN KISIM
-            }
+                netObj.Spawn();
 
-            /*// sadece debug için renk
             var view = go.GetComponent<CardView>();
             if (view != null)
             {
-                view.InitDebugColor(Color.yellow);
-            }*/
-
+                view.SetupAsCenter(i);
+                centerCards[i] = view;
+            }
         }
 
-        // Her oyuncuya 4 kart
+        // --- Her oyuncuya 4 kart ---
         for (int seat = 0; seat < 4; seat++)
         {
             for (int slot = 0; slot < 4; slot++)
             {
-                if (handSlots[seat, slot] == null) continue;
+                if (handSlots[seat, slot] == null)
+                    continue;
 
                 GameObject go = Instantiate(
                     cardPrefab,
@@ -160,62 +182,134 @@ public class KempsGameManager : NetworkBehaviour
 
                 var netObj = go.GetComponent<NetworkObject>();
                 if (netObj != null)
-                {
                     netObj.Spawn();
-                }
-                /*
+
                 var view = go.GetComponent<CardView>();
                 if (view != null)
                 {
-                    // her seat farklý renk olsun diye
-                    Color c = Color.white;
-                    if (seat == 0) c = Color.red;
-                    if (seat == 1) c = Color.blue;
-                    if (seat == 2) c = Color.green;
-                    if (seat == 3) c = Color.magenta;
-                    view.InitDebugColor(c);
+                    view.SetupAsHand(seat, slot);
+                    handCards[seat, slot] = view;
                 }
-                */
             }
         }
     }
 
     // =======================
-    //  INPUT'TAN GELECEK RPC'LER
+    //  ROUND / INPUT Ä°SKELETÄ°
     // =======================
 
     [ServerRpc(RequireOwnership = false)]
     public void RequestPassServerRpc(ServerRpcParams rpcParams = default)
     {
         ulong senderId = rpcParams.Receive.SenderClientId;
-        Debug.Log($"[KempsGameManager] PASS alýndý. Client: {senderId}");
+        Debug.Log($"[KempsGameManager] PASS isteÄŸi alÄ±ndÄ±. Client={senderId}");
+        // PASS mantÄ±ÄŸÄ±nÄ± daha sonra yazacaÄŸÄ±z.
     }
 
     [ServerRpc(RequireOwnership = false)]
     public void RequestKempsServerRpc(ServerRpcParams rpcParams = default)
     {
         ulong senderId = rpcParams.Receive.SenderClientId;
-        Debug.Log($"[KempsGameManager] KEMPS alýndý. Client: {senderId}");
+        Debug.Log($"[KempsGameManager] KEMPS isteÄŸi alÄ±ndÄ±. Client={senderId}");
+        // KEMPS kontrolÃ¼ burada olacak.
     }
 
     [ServerRpc(RequireOwnership = false)]
     public void RequestUnkempsServerRpc(ServerRpcParams rpcParams = default)
     {
         ulong senderId = rpcParams.Receive.SenderClientId;
-        Debug.Log($"[KempsGameManager] UNKEMPS alýndý. Client: {senderId}");
+        Debug.Log($"[KempsGameManager] UNKEMPS isteÄŸi alÄ±ndÄ±. Client={senderId}");
+        // UNKEMPS kontrolÃ¼ burada olacak.
     }
 
-    [ServerRpc(RequireOwnership = false)]
-    public void RequestReserveCenterCardServerRpc(int centerIndex, ServerRpcParams rpcParams = default)
-    {
-        ulong senderId = rpcParams.Receive.SenderClientId;
-        Debug.Log($"[KempsGameManager] Center card reserve isteði. Index={centerIndex}, Client={senderId}");
-    }
+    // ==============
+    //  EL â†’ MERKEZ
+    // ==============
 
     [ServerRpc(RequireOwnership = false)]
-    public void RequestSwapHandCardServerRpc(int handIndex, ServerRpcParams rpcParams = default)
+    public void RequestDropHandCardServerRpc(int seatIndex, int handIndex, ServerRpcParams rpcParams = default)
     {
         ulong senderId = rpcParams.Receive.SenderClientId;
-        Debug.Log($"[KempsGameManager] El kartý swap isteði. HandIndex={handIndex}, Client={senderId}");
+        Debug.Log($"[KempsGameManager] DropHand isteÄŸi: seat={seatIndex}, hand={handIndex}, client={senderId}");
+
+        if (seatIndex < 0 || seatIndex >= 4) return;
+        if (handIndex < 0 || handIndex >= 4) return;
+
+        var card = handCards[seatIndex, handIndex];
+        if (card == null) return;
+
+        // Zaten bir kart atmÄ±ÅŸsa
+        if (pendingSwapHandIndex[seatIndex] != -1)
+            return;
+
+        // BoÅŸ bir center slotu bul (0..7 iÃ§inde)
+        int centerIndex = -1;
+        for (int i = 0; i < 8; i++)
+        {
+            if (centerCards[i] == null)
+            {
+                centerIndex = i;
+                break;
+            }
+        }
+
+        if (centerIndex == -1)
+        {
+            Debug.Log("[KempsGameManager] Merkezi slotlarda yer yok, kart atÄ±lamadÄ±.");
+            return;
+        }
+
+        // Dizileri gÃ¼ncelle
+        handCards[seatIndex, handIndex] = null;
+        centerCards[centerIndex] = card;
+        pendingSwapHandIndex[seatIndex] = handIndex;
+
+        // Transform'u yeni slota taÅŸÄ±
+        var targetSlot = centerSlots[centerIndex];
+        card.MoveToSlot(targetSlot);
+        card.SetupAsCenter(centerIndex);
+
+        Debug.Log($"[KempsGameManager] Kart seat={seatIndex}, hand={handIndex} -> centerIndex={centerIndex}");
+    }
+
+    // ==============
+    //  MERKEZ â†’ EL
+    // ==============
+
+    [ServerRpc(RequireOwnership = false)]
+    public void RequestTakeCenterCardServerRpc(int seatIndex, int centerIndex, ServerRpcParams rpcParams = default)
+    {
+        ulong senderId = rpcParams.Receive.SenderClientId;
+        Debug.Log($"[KempsGameManager] TakeCenter isteÄŸi: seat={seatIndex}, center={centerIndex}, client={senderId}");
+
+        if (seatIndex < 0 || seatIndex >= 4) return;
+        if (centerIndex < 0 || centerIndex >= 8) return;
+
+        int handIndex = pendingSwapHandIndex[seatIndex];
+        if (handIndex == -1)
+        {
+            // Ã–nceden elden kart atmamÄ±ÅŸ -> alamaz
+            Debug.Log("[KempsGameManager] Bu oyuncu daha Ã¶nce kart atmadÄ±, alamaz.");
+            return;
+        }
+
+        var card = centerCards[centerIndex];
+        if (card == null)
+            return;
+
+        if (handCards[seatIndex, handIndex] != null)
+            return;
+
+        // Dizileri gÃ¼ncelle
+        centerCards[centerIndex] = null;
+        handCards[seatIndex, handIndex] = card;
+        pendingSwapHandIndex[seatIndex] = -1;
+
+        // Transform'u eldeki slota taÅŸÄ±
+        var targetSlot = handSlots[seatIndex, handIndex];
+        card.MoveToSlot(targetSlot);
+        card.SetupAsHand(seatIndex, handIndex);
+
+        Debug.Log($"[KempsGameManager] Kart center={centerIndex} -> seat={seatIndex}, hand={handIndex}");
     }
 }

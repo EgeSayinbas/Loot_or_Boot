@@ -1,30 +1,81 @@
 using UnityEngine;
+using Unity.Netcode;
 
-public class CardView : MonoBehaviour
+public enum CardZone : byte
 {
-   /* public ArtCardData Data { get; private set; }
+    None = 0,
+    Hand = 1,
+    Center = 2
+}
 
-    [SerializeField] private MeshRenderer frontRenderer;
 
-    public void Bind(ArtCardData data)
+[RequireComponent(typeof(NetworkObject))]
+public class CardView : NetworkBehaviour
+{
+    [Header("Debug / Visual")]
+    [SerializeField] private Renderer cardRenderer;
+
+    private NetworkVariable<CardZone> zone = new NetworkVariable<CardZone>(
+        CardZone.None,
+        NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Server
+    );
+
+    private NetworkVariable<int> seatIndex = new NetworkVariable<int>(
+        -1,
+        NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Server
+    );
+
+    private NetworkVariable<int> slotIndex = new NetworkVariable<int>(
+        -1,
+        NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Server
+    );
+
+    public CardZone Zone => zone.Value;
+    public int SeatIndex => seatIndex.Value;
+    public int SlotIndex => slotIndex.Value;
+
+    private void Awake()
     {
-        Data = data;
-
-        if (frontRenderer != null && data != null && data.artwork != null)
-        {
-            // Kartýn ön yüzüne texture bas
-            frontRenderer.material.mainTexture = data.artwork;
-        }
+        if (cardRenderer == null)
+            cardRenderer = GetComponentInChildren<Renderer>();
     }
 
-    */
-  /*  public void InitDebugColor(Color c)
+    // === Server tarafý setup fonksiyonlarý ===
+
+    public void SetupAsCenter(int centerIndex)
     {
-        var renderer = GetComponentInChildren<MeshRenderer>();
-        if (renderer != null)
-        {
-            renderer.material.color = c;
-        }
+        if (!IsServer) return;
+
+        zone.Value = CardZone.Center;
+        seatIndex.Value = -1;
+        slotIndex.Value = centerIndex;
     }
-  */
+
+    public void SetupAsHand(int seat, int handSlot)
+    {
+        if (!IsServer) return;
+
+        zone.Value = CardZone.Hand;
+        seatIndex.Value = seat;
+        slotIndex.Value = handSlot;
+    }
+
+    // Transform'u belli bir slota taþý
+    public void MoveToSlot(Transform slotTf)
+    {
+        if (slotTf == null) return;
+
+        transform.SetPositionAndRotation(slotTf.position, slotTf.rotation);
+        transform.SetParent(slotTf, true);
+    }
+
+    // Debug renk
+    public void InitDebugColor(Color c)
+    {
+        if (cardRenderer != null)
+            cardRenderer.material.color = c;
+    }
 }
