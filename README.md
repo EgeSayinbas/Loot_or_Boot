@@ -41,6 +41,8 @@ Rather than relying on chat or explicit UI cues, the project experiments with ph
 
 Engine: Unity
 
+Engine Version: 6000.2.15f1
+
 Networking: Netcode for GameObjects
 
 Gameplay: 3D card objects (not UI-based cards)
