@@ -1,81 +1,121 @@
-using UnityEngine;
+using System.Collections.Generic;
 using Unity.Netcode;
+using UnityEngine;
 
-public enum CardZone : byte
-{
-    None = 0,
-    Hand = 1,
-    Center = 2
-}
-
-
-[RequireComponent(typeof(NetworkObject))]
 public class CardView : NetworkBehaviour
 {
-    [Header("Debug / Visual")]
-    [SerializeField] private Renderer cardRenderer;
+    [Header("Renderers")]
+    [SerializeField] private MeshRenderer frontRenderer;
+    [SerializeField] private MeshRenderer backRenderer;
 
-    private NetworkVariable<CardZone> zone = new NetworkVariable<CardZone>(
-        CardZone.None,
-        NetworkVariableReadPermission.Everyone,
-        NetworkVariableWritePermission.Server
-    );
+    // Networked state
+    public NetworkVariable<int> CardId = new NetworkVariable<int>(-1);
+    public NetworkVariable<int> SeatIndex = new NetworkVariable<int>(-1);
+    public NetworkVariable<int> SlotIndex = new NetworkVariable<int>(-1);
+    public NetworkVariable<CardZone> Zone = new NetworkVariable<CardZone>(CardZone.Deck);
+    public NetworkVariable<bool> FaceUp = new NetworkVariable<bool>(false);
 
-    private NetworkVariable<int> seatIndex = new NetworkVariable<int>(
-        -1,
-        NetworkVariableReadPermission.Everyone,
-        NetworkVariableWritePermission.Server
-    );
+    private static Dictionary<int, ArtCardData> _db;
+    private MaterialPropertyBlock _mpb;
 
-    private NetworkVariable<int> slotIndex = new NetworkVariable<int>(
-        -1,
-        NetworkVariableReadPermission.Everyone,
-        NetworkVariableWritePermission.Server
-    );
-
-    public CardZone Zone => zone.Value;
-    public int SeatIndex => seatIndex.Value;
-    public int SlotIndex => slotIndex.Value;
-
-    private void Awake()
+    public override void OnNetworkSpawn()
     {
-        if (cardRenderer == null)
-            cardRenderer = GetComponentInChildren<Renderer>();
+        base.OnNetworkSpawn();
+
+        EnsureDbLoaded();
+
+        _mpb ??= new MaterialPropertyBlock();
+
+        CardId.OnValueChanged += (_, __) => RefreshVisual();
+        SeatIndex.OnValueChanged += (_, __) => RefreshVisual();
+        SlotIndex.OnValueChanged += (_, __) => RefreshVisual();
+        Zone.OnValueChanged += (_, __) => RefreshVisual();
+        FaceUp.OnValueChanged += (_, __) => RefreshVisual();
+
+        RefreshVisual();
     }
 
-    // === Server tarafý setup fonksiyonlarý ===
+    private void EnsureDbLoaded()
+    {
+        if (_db != null) return;
 
-    public void SetupAsCenter(int centerIndex)
+        _db = new Dictionary<int, ArtCardData>();
+        var all = Resources.LoadAll<ArtCardData>("Cards/Data");
+        foreach (var d in all)
+        {
+            if (d == null) continue;
+            _db[d.cardId] = d;
+        }
+    }
+
+    public bool IsMyHandCard()
+    {
+        var local = NetworkPlayer.Local;
+        if (local == null) return false;
+        return Zone.Value == CardZone.Hand && SeatIndex.Value == local.SeatIndex.Value;
+    }
+
+    public void RefreshVisual()
+    {
+        if (frontRenderer == null || backRenderer == null) return;
+
+        EnsureDbLoaded();
+
+        bool shouldShowFront = false;
+
+        // Center açýk mý?
+        if (Zone.Value == CardZone.Center && FaceUp.Value)
+            shouldShowFront = true;
+
+        // Hand ise sadece sahibi görsün
+        if (Zone.Value == CardZone.Hand)
+            shouldShowFront = IsMyHandCard();
+
+        // Deck/Discard: genelde back
+        if (!_db.TryGetValue(CardId.Value, out var data) || data == null)
+        {
+            // data yoksa güvenli: back göster
+            frontRenderer.gameObject.SetActive(false);
+            backRenderer.gameObject.SetActive(true);
+            return;
+        }
+
+        // Texture bas
+        if (shouldShowFront)
+        {
+            ApplyTexture(frontRenderer, data.frontTexture);
+            frontRenderer.gameObject.SetActive(true);
+            backRenderer.gameObject.SetActive(false);
+        }
+        else
+        {
+            ApplyTexture(backRenderer, data.backTexture);
+            backRenderer.gameObject.SetActive(true);
+            frontRenderer.gameObject.SetActive(false);
+        }
+    }
+
+    private void ApplyTexture(MeshRenderer r, Texture2D tex)
+    {
+        if (r == null || tex == null) return;
+
+        r.GetPropertyBlock(_mpb);
+        _mpb.SetTexture("_BaseMap", tex);
+        _mpb.SetTexture("_MainTex", tex); // bazý shader’lar bunu ister
+        r.SetPropertyBlock(_mpb);
+    }
+
+    // Server sadece bu fonksiyonu çaðýrýr (spawn sonrasý)
+    public void Server_Setup(int cardId, CardZone zone, int seatIndex, int slotIndex, bool faceUp)
     {
         if (!IsServer) return;
 
-        zone.Value = CardZone.Center;
-        seatIndex.Value = -1;
-        slotIndex.Value = centerIndex;
-    }
+        CardId.Value = cardId;
+        Zone.Value = zone;
+        SeatIndex.Value = seatIndex;
+        SlotIndex.Value = slotIndex;
+        FaceUp.Value = faceUp;
 
-    public void SetupAsHand(int seat, int handSlot)
-    {
-        if (!IsServer) return;
-
-        zone.Value = CardZone.Hand;
-        seatIndex.Value = seat;
-        slotIndex.Value = handSlot;
-    }
-
-    // Transform'u belli bir slota taþý
-    public void MoveToSlot(Transform slotTf)
-    {
-        if (slotTf == null) return;
-
-        transform.SetPositionAndRotation(slotTf.position, slotTf.rotation);
-        transform.SetParent(slotTf, true);
-    }
-
-    // Debug renk
-    public void InitDebugColor(Color c)
-    {
-        if (cardRenderer != null)
-            cardRenderer.material.color = c;
+        RefreshVisual();
     }
 }

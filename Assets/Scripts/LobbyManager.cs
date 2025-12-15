@@ -1,13 +1,20 @@
 ﻿using System.Collections.Generic;
-using UnityEngine;
-using Unity.Netcode;
-using UnityEngine.UI;
-using UnityEngine.SceneManagement;   // LoadSceneMode buradan geliyor
 using TMPro;
+using Unity.Netcode;
+using UnityEngine;
+using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
 public class LobbyManager : NetworkBehaviour
 {
     public static LobbyManager Instance { get; private set; }
+
+    [Header("UI")]
+    [SerializeField] private TMP_Text txtTargetScore;
+
+    [Header("Settings")]
+    [SerializeField] private int minScore = 1;
+    [SerializeField] private int maxScore = 10;
 
     [Header("Ready Button Color Presets")]
     [SerializeField] private ColorBlock readyOffColors;
@@ -24,6 +31,12 @@ public class LobbyManager : NetworkBehaviour
 
     private readonly List<NetworkPlayer> players = new List<NetworkPlayer>();
 
+    public NetworkVariable<int> TargetScore = new NetworkVariable<int>(
+        3,
+        NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Server
+    );
+
     private void Awake()
     {
         Instance = this;
@@ -33,20 +46,20 @@ public class LobbyManager : NetworkBehaviour
     {
         base.OnNetworkSpawn();
 
-        // Ready button color presetlerini otomatik al
+        TargetScore.OnValueChanged += (_, newValue) => UpdateTargetScoreUI(newValue);
+        UpdateTargetScoreUI(TargetScore.Value);
+
         if (readyButton != null)
         {
             readyOffColors = readyButton.colors;
 
-            // READY basılı hali = disabled rengi her yerde
             readyOnColors = readyOffColors;
             readyOnColors.normalColor = readyOffColors.disabledColor;
             readyOnColors.highlightedColor = readyOffColors.disabledColor;
             readyOnColors.pressedColor = readyOffColors.disabledColor;
         }
 
-
-        if (IsServer)
+        if (IsServer && NetworkManager.Singleton != null)
         {
             NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnected;
             NetworkManager.Singleton.OnClientDisconnectCallback += OnClientDisconnected;
@@ -55,7 +68,7 @@ public class LobbyManager : NetworkBehaviour
         RefreshUI();
     }
 
-    private void OnDestroycustom()
+    private void OnDestroyx()
     {
         if (IsServer && NetworkManager.Singleton != null)
         {
@@ -63,42 +76,40 @@ public class LobbyManager : NetworkBehaviour
             NetworkManager.Singleton.OnClientDisconnectCallback -= OnClientDisconnected;
         }
 
-        if (Instance == this)
-            Instance = null;
+        if (Instance == this) Instance = null;
     }
 
-    private void OnClientConnected(ulong clientId)
+    private void UpdateTargetScoreUI(int value)
     {
-        RefreshUIClientRpc();
+        if (txtTargetScore != null)
+            txtTargetScore.text = value.ToString();
     }
 
-    private void OnClientDisconnected(ulong clientId)
-    {
-        RefreshUIClientRpc();
-    }
+    private void OnClientConnected(ulong clientId) => RefreshUIClientRpc();
+    private void OnClientDisconnected(ulong clientId) => RefreshUIClientRpc();
 
     // ==== UI EVENTLERİ ====
 
-    public void OnClickTeamRed()
+    public void OnClickTeamRed() => NetworkPlayer.Local?.RequestChangeTeamServerRpc(Team.Red);
+    public void OnClickTeamBlue() => NetworkPlayer.Local?.RequestChangeTeamServerRpc(Team.Blue);
+    public void OnClickTeamNone() => NetworkPlayer.Local?.RequestChangeTeamServerRpc(Team.None);
+
+    public void OnClickPlus()
     {
-        NetworkPlayer.Local?.RequestChangeTeamServerRpc(Team.Red);
+        if (!IsHost) return;
+        ChangeTargetScoreServerRpc(+1);
     }
 
-    public void OnClickTeamBlue()
+    public void OnClickMinus()
     {
-        NetworkPlayer.Local?.RequestChangeTeamServerRpc(Team.Blue);
-    }
-
-    public void OnClickTeamNone()
-    {
-        NetworkPlayer.Local?.RequestChangeTeamServerRpc(Team.None);
+        if (!IsHost) return;
+        ChangeTargetScoreServerRpc(-1);
     }
 
     public void OnClickReady()
     {
         if (NetworkPlayer.Local == null) return;
 
-        // TAKIMSIZKEN READY VERME!
         if (NetworkPlayer.Local.PlayerTeam.Value == Team.None)
         {
             Debug.Log("Takım seçmeden ready veremezsin.");
@@ -107,6 +118,7 @@ public class LobbyManager : NetworkBehaviour
 
         bool newReady = !NetworkPlayer.Local.IsReady.Value;
         NetworkPlayer.Local.RequestSetReadyServerRpc(newReady);
+        RefreshUI(); // local UI hızlı güncellensin
     }
 
     public void OnClickStart()
@@ -120,7 +132,11 @@ public class LobbyManager : NetworkBehaviour
         if (!AreAllNonHostPlayersReady())
             return;
 
+        // ✅ TargetScore’u Game sahnesine taşı
+        KempsSession.TargetScore = TargetScore.Value;
+
         AssignSeatIndices();
+        KempsSession.TargetScore = TargetScore.Value;
         NetworkManager.Singleton.SceneManager.LoadScene("Game", LoadSceneMode.Single);
     }
 
@@ -129,7 +145,6 @@ public class LobbyManager : NetworkBehaviour
     private bool AreAllNonHostPlayersReady()
     {
         RebuildPlayerList();
-
         foreach (var p in players)
         {
             if (!p.IsHostPlayer.Value && !p.IsReady.Value)
@@ -141,19 +156,8 @@ public class LobbyManager : NetworkBehaviour
     private void RebuildPlayerList()
     {
         players.Clear();
-
-        // Yeni API
-        var foundPlayers = Object.FindObjectsByType<NetworkPlayer>(
-            FindObjectsSortMode.None
-        );
-
+        var foundPlayers = Object.FindObjectsByType<NetworkPlayer>(FindObjectsSortMode.None);
         players.AddRange(foundPlayers);
-    }
-
-    [ClientRpc]
-    public void RefreshUIClientRpc()
-    {
-        RefreshUI();
     }
 
     public void RefreshUI()
@@ -169,22 +173,17 @@ public class LobbyManager : NetworkBehaviour
 
     private void ClearAllSlots()
     {
-        foreach (var slot in redColumn.GetComponentsInChildren<LobbySlotUI>())
-            slot.Clear();
-        foreach (var slot in greyColumn.GetComponentsInChildren<LobbySlotUI>())
-            slot.Clear();
-        foreach (var slot in blueColumn.GetComponentsInChildren<LobbySlotUI>())
-            slot.Clear();
+        foreach (var slot in redColumn.GetComponentsInChildren<LobbySlotUI>()) slot.Clear();
+        foreach (var slot in greyColumn.GetComponentsInChildren<LobbySlotUI>()) slot.Clear();
+        foreach (var slot in blueColumn.GetComponentsInChildren<LobbySlotUI>()) slot.Clear();
     }
 
     private void AddPlayerToSlots(NetworkPlayer p)
     {
         Transform column = greyColumn;
 
-        if (p.PlayerTeam.Value == Team.Red)
-            column = redColumn;
-        else if (p.PlayerTeam.Value == Team.Blue)
-            column = blueColumn;
+        if (p.PlayerTeam.Value == Team.Red) column = redColumn;
+        else if (p.PlayerTeam.Value == Team.Blue) column = blueColumn;
 
         foreach (var slot in column.GetComponentsInChildren<LobbySlotUI>())
         {
@@ -198,12 +197,10 @@ public class LobbyManager : NetworkBehaviour
 
     private void UpdateButtons()
     {
-        if (NetworkPlayer.Local == null)
-            return;
+        if (NetworkPlayer.Local == null) return;
 
         bool isHost = NetworkPlayer.Local.IsHostPlayer.Value;
 
-        // HOST
         startButton.gameObject.SetActive(isHost);
         readyButton.gameObject.SetActive(!isHost);
 
@@ -213,16 +210,9 @@ public class LobbyManager : NetworkBehaviour
             return;
         }
 
-        // CLIENT
         bool isReady = NetworkPlayer.Local.IsReady.Value;
-
         readyButton.colors = isReady ? readyOnColors : readyOffColors;
-
-        var text = readyButton.GetComponentInChildren<TextMeshProUGUI>();
-        if (text != null)
-            text.text = "READY";
     }
-
 
     private void AssignSeatIndices()
     {
@@ -235,16 +225,29 @@ public class LobbyManager : NetworkBehaviour
             else if (p.PlayerTeam.Value == Team.Blue) bluePlayers.Add(p);
         }
 
+        // ✅ Red = seat 0 & 2  => team0 (seat%2=0)
         if (redPlayers.Count >= 2)
         {
             redPlayers[0].SeatIndex.Value = 0;
             redPlayers[1].SeatIndex.Value = 2;
         }
 
+        // ✅ Blue = seat 1 & 3 => team1 (seat%2=1)
         if (bluePlayers.Count >= 2)
         {
             bluePlayers[0].SeatIndex.Value = 1;
             bluePlayers[1].SeatIndex.Value = 3;
         }
+    }
+
+    [ClientRpc]
+    public void RefreshUIClientRpc() => RefreshUI();
+
+    [ServerRpc(RequireOwnership = false)]
+    private void ChangeTargetScoreServerRpc(int delta)
+    {
+        int next = Mathf.Clamp(TargetScore.Value + delta, minScore, maxScore);
+        TargetScore.Value = next;
+        KempsSession.TargetScore = next;
     }
 }
