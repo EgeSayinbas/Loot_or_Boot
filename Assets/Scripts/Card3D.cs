@@ -1,3 +1,4 @@
+ï»¿using System;
 using UnityEngine;
 
 public class Card3D : MonoBehaviour
@@ -11,13 +12,14 @@ public class Card3D : MonoBehaviour
 
     private void OnMouseDown()
     {
-        // Multiplayer Play Mode’da her pencerede ayrý týk çalýþýr.
+        // Multiplayer Play Modeâ€™da her pencerede ayrÄ± tÄ±k Ã§alÄ±ÅŸÄ±r.
         if (KempsInputController.Instance == null)
         {
-            Debug.LogWarning("[Card3D] KempsInputController.Instance yok, týklama iþlenemedi.");
+            Debug.LogWarning("[Card3D] KempsInputController.Instance yok, tÄ±klama islenemedi.");
             return;
         }
 
         KempsInputController.Instance.OnCardClicked(this);
     }
+   
 }

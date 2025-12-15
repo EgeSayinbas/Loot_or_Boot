@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Unity.Netcode;
@@ -11,39 +12,47 @@ public class KempsGameManager : NetworkBehaviour
 
     [Header("Scene Roots")]
     [SerializeField] private Transform centerCardsRoot;
-    [SerializeField] private Transform discardPileRoot;
+    [SerializeField] private Transform discardPileRoot;   // DiscardPileRoot (konumu ayarlı)
     [SerializeField] private Transform deckRoot;
     [SerializeField] private Transform cardSlotRoot;
 
     [Header("Prefabs")]
     [SerializeField] private GameObject cardPrefab;
 
+    [Header("Discard Visual")]
+    [SerializeField] private float discardStackUpOffset = 0.005f; // aynı noktada dursun ama z-fighting olmasın
+
+    // Slots
     private readonly Transform[] _centerSlots = new Transform[8];
     private readonly Transform[,] _handSlots = new Transform[4, 4];
 
+    // Spawned cards
     private readonly CardView[] _centerCards = new CardView[8];
     private readonly CardView[,] _handCards = new CardView[4, 4];
 
     private readonly int[] _pendingHandIndex = new int[4];
 
+    // Deck/discard IDs (server)
     private readonly List<int> _drawPile = new List<int>();
-    private readonly List<int> _discardPile = new List<int>();
+    private readonly List<int> _discardIds = new List<int>();
 
+    // Discard visual objects (network objects moved to discard root)
+    private readonly List<CardView> _discardVisuals = new List<CardView>();
+
+    // Pass state
     private readonly bool[] _passed = new bool[4];
 
     // ===== NETWORKED STATE =====
     public NetworkVariable<bool> GameStarted { get; private set; } = new NetworkVariable<bool>(false);
-    public NetworkVariable<int> Team0Score { get; private set; } = new NetworkVariable<int>(0); // team0 = Red (seat 0&2)
-    public NetworkVariable<int> Team1Score { get; private set; } = new NetworkVariable<int>(0); // team1 = Blue (seat 1&3)
+    public NetworkVariable<int> Team0Score { get; private set; } = new NetworkVariable<int>(0); // team0 = Red
+    public NetworkVariable<int> Team1Score { get; private set; } = new NetworkVariable<int>(0); // team1 = Blue
     public NetworkVariable<int> RoundIndex { get; private set; } = new NetworkVariable<int>(1);
 
+    // GAME OVER
     public NetworkVariable<int> TargetScore { get; private set; } = new NetworkVariable<int>(3);
     public NetworkVariable<bool> GameOver { get; private set; } = new NetworkVariable<bool>(false);
 
     private readonly int[] _unkempsWrong = new int[2];
-
-    // Play Again votes (server only)
-    private readonly bool[] _playAgainVote = new bool[4];
 
     private Dictionary<int, ArtCardData> _db;
 
@@ -58,15 +67,12 @@ public class KempsGameManager : NetworkBehaviour
 
         if (!IsServer) return;
 
-        for (int i = 0; i < 4; i++)
-        {
-            _pendingHandIndex[i] = -1;
-            _playAgainVote[i] = false;
-        }
+        for (int i = 0; i < 4; i++) _pendingHandIndex[i] = -1;
 
         CacheSlotTransforms();
         LoadDeckFromResources_Server();
 
+        // Lobby’den gelen hedef skor
         TargetScore.Value = Mathf.Max(1, KempsSession.TargetScore);
 
         Debug.Log($"[KempsGameManager] Deck hazır. Count={_drawPile.Count} TargetScore={TargetScore.Value}");
@@ -98,8 +104,13 @@ public class KempsGameManager : NetworkBehaviour
             _db[d.cardId] = d;
         }
 
+        RebuildFullDeck_Server();
+    }
+
+    private void RebuildFullDeck_Server()
+    {
         _drawPile.Clear();
-        _discardPile.Clear();
+        _discardIds.Clear();
 
         foreach (var id in _db.Keys.OrderBy(x => x))
             _drawPile.Add(id);
@@ -119,6 +130,7 @@ public class KempsGameManager : NetworkBehaviour
 
     private int GetTeam(int seat) => seat % 2; // team0: seat 0&2 (Red), team1: seat 1&3 (Blue)
     private int GetTeammate(int seat) => (seat == 0) ? 2 : (seat == 2) ? 0 : (seat == 1) ? 3 : 1;
+
     private bool IsHostClientRequest(ulong senderClientId) => senderClientId == NetworkManager.ServerClientId;
 
     // =========================
@@ -149,46 +161,68 @@ public class KempsGameManager : NetworkBehaviour
 
     private void StartRoundDeal_Server()
     {
-        CleanupAllSpawnedCards_Server();
+        Debug.Log("[KempsGameManager] StartGameDeal: dağıtım başlıyor.");
+
+        // Yeni round başlarken discard sıfır olsun (visual + ids)
+        ClearDiscardPile_Server();
+
+        // Masadaki kartları temizle (elde/centerda kalan network objelerini yok et)
+        DespawnAllHandAndCenter_Server();
+
         ResetRoundFlags_Server();
-        Shuffle(_drawPile);
+
+        // Round başında tam 52 üzerinden tekrar başlamak istiyorsan:
+        // (Senin istediğin: EndRound olur olmaz sıfırlanıyor; burada da garanti)
+        RebuildFullDeck_Server();
 
         for (int seat = 0; seat < 4; seat++)
+        {
             for (int slot = 0; slot < 4; slot++)
-                SpawnCardToHand_Server(DrawOne_Server(), seat, slot);
+            {
+                int id = DrawOne_Server();
+                SpawnCardToHand_Server(id, seat, slot);
+            }
+        }
 
         for (int i = 0; i < 4; i++)
-            SpawnCardToCenter_Server(DrawOne_Server(), i, faceUp: true);
+        {
+            int id = DrawOne_Server();
+            SpawnCardToCenter_Server(id, i, faceUp: true);
+        }
 
         GameStarted.Value = true;
     }
 
     private void FlipCenter_Server()
     {
+        // Center 0..3 + ekstra 4..7 varsa hepsini discard'a gönder
         for (int i = 0; i < 8; i++)
         {
             if (_centerCards[i] == null) continue;
 
-            int cardId = _centerCards[i].CardId.Value;
-            _discardPile.Add(cardId);
-
-            DespawnCardObject_Server(_centerCards[i]);
+            var cv = _centerCards[i];
             _centerCards[i] = null;
+
+            MoveCardToDiscard_Server(cv);
         }
 
+        // Yeni 4 center
         for (int i = 0; i < 4; i++)
-            SpawnCardToCenter_Server(DrawOne_Server(), i, faceUp: true);
+        {
+            int id = DrawOne_Server();
+            SpawnCardToCenter_Server(id, i, faceUp: true);
+        }
 
         ResetPasses_Server();
+        Debug.Log("[KempsGameManager] DeckFlip: discard old center + spawn new 4 center.");
     }
 
-    private void CleanupAllSpawnedCards_Server()
+    private void DespawnAllHandAndCenter_Server()
     {
         for (int i = 0; i < 8; i++)
         {
             if (_centerCards[i] != null)
             {
-                _discardPile.Add(_centerCards[i].CardId.Value);
                 DespawnCardObject_Server(_centerCards[i]);
                 _centerCards[i] = null;
             }
@@ -200,7 +234,6 @@ public class KempsGameManager : NetworkBehaviour
             {
                 if (_handCards[seat, slot] != null)
                 {
-                    _discardPile.Add(_handCards[seat, slot].CardId.Value);
                     DespawnCardObject_Server(_handCards[seat, slot]);
                     _handCards[seat, slot] = null;
                 }
@@ -214,8 +247,47 @@ public class KempsGameManager : NetworkBehaviour
         if (view == null) return;
 
         var netObj = view.GetComponent<NetworkObject>();
-        if (netObj != null && netObj.IsSpawned) netObj.Despawn(true);
-        else Destroy(view.gameObject);
+        if (netObj != null && netObj.IsSpawned)
+            netObj.Despawn(true);
+        else
+            Destroy(view.gameObject);
+    }
+
+    private void MoveCardToDiscard_Server(CardView cv)
+    {
+        if (cv == null) return;
+
+        // ID listesine ekle (bu kartlar reshuffle/round reset gelene kadar tekrar çekilemez)
+        int id = cv.CardId.Value;
+        _discardIds.Add(id);
+
+        // Visual: DiscardPileRoot konumunda kalsın (ufak up offset ile stack)
+        if (discardPileRoot != null)
+        {
+            var pos = discardPileRoot.position + (discardPileRoot.up * discardStackUpOffset * _discardVisuals.Count);
+            cv.transform.SetPositionAndRotation(pos, discardPileRoot.rotation);
+        }
+
+        // Back görünsün
+        cv.FaceUp.Value = false;
+
+        // Click’te karışmasın: slotIndex negatif (InputController zaten ignore ediyor)
+        cv.SeatIndex.Value = -1;
+        cv.SlotIndex.Value = -1;
+
+        _discardVisuals.Add(cv);
+    }
+
+    private void ClearDiscardPile_Server()
+    {
+        // Visual objeleri yok et
+        for (int i = 0; i < _discardVisuals.Count; i++)
+            DespawnCardObject_Server(_discardVisuals[i]);
+
+        _discardVisuals.Clear();
+
+        // ID listesi de sıfırlansın (senin istediğin: EndRound olur olmaz temiz)
+        _discardIds.Clear();
     }
 
     private void ResetRoundFlags_Server()
@@ -240,16 +312,6 @@ public class KempsGameManager : NetworkBehaviour
     private int DrawOne_Server()
     {
         if (_drawPile.Count == 0)
-        {
-            if (_discardPile.Count > 0)
-            {
-                _drawPile.AddRange(_discardPile);
-                _discardPile.Clear();
-                Shuffle(_drawPile);
-            }
-        }
-
-        if (_drawPile.Count == 0)
             throw new Exception("Deck empty!");
 
         int id = _drawPile[0];
@@ -263,7 +325,8 @@ public class KempsGameManager : NetworkBehaviour
         if (target == null || cardPrefab == null) return;
 
         var go = Instantiate(cardPrefab, target.position, target.rotation);
-        go.GetComponent<NetworkObject>().Spawn();
+        var net = go.GetComponent<NetworkObject>();
+        net.Spawn();
 
         var view = go.GetComponent<CardView>();
         view.Server_Setup(cardId, CardZone.Hand, seat, slot, faceUp: true);
@@ -277,7 +340,8 @@ public class KempsGameManager : NetworkBehaviour
         if (target == null || cardPrefab == null) return;
 
         var go = Instantiate(cardPrefab, target.position, target.rotation);
-        go.GetComponent<NetworkObject>().Spawn();
+        var net = go.GetComponent<NetworkObject>();
+        net.Spawn();
 
         var view = go.GetComponent<CardView>();
         view.Server_Setup(cardId, CardZone.Center, seatIndex: -1, slotIndex: centerIndex, faceUp: faceUp);
@@ -299,10 +363,14 @@ public class KempsGameManager : NetworkBehaviour
     {
         if (GameOver.Value) return;
 
-        int seat = GetSeatFromClientId(rpcParams.Receive.SenderClientId);
-        if (seat < 0 || !GameStarted.Value) return;
+        var sender = rpcParams.Receive.SenderClientId;
+        int seat = GetSeatFromClientId(sender);
+        if (seat < 0) return;
+
+        if (!GameStarted.Value) return;
 
         _passed[seat] = true;
+        Debug.Log($"[KempsGameManager] PASS: seat={seat}");
     }
 
     [ServerRpc(RequireOwnership = false)]
@@ -310,8 +378,11 @@ public class KempsGameManager : NetworkBehaviour
     {
         if (GameOver.Value) return;
 
-        int seat = GetSeatFromClientId(rpcParams.Receive.SenderClientId);
-        if (seat < 0 || !GameStarted.Value) return;
+        var sender = rpcParams.Receive.SenderClientId;
+        int seat = GetSeatFromClientId(sender);
+        if (seat < 0) return;
+
+        if (!GameStarted.Value) return;
 
         int team = GetTeam(seat);
         int mate = GetTeammate(seat);
@@ -338,8 +409,11 @@ public class KempsGameManager : NetworkBehaviour
     {
         if (GameOver.Value) return;
 
-        int seat = GetSeatFromClientId(rpcParams.Receive.SenderClientId);
-        if (seat < 0 || !GameStarted.Value) return;
+        var sender = rpcParams.Receive.SenderClientId;
+        int seat = GetSeatFromClientId(sender);
+        if (seat < 0) return;
+
+        if (!GameStarted.Value) return;
 
         int team = GetTeam(seat);
         int enemyTeam = 1 - team;
@@ -348,7 +422,11 @@ public class KempsGameManager : NetworkBehaviour
         for (int s = 0; s < 4; s++)
         {
             if (GetTeam(s) != enemyTeam) continue;
-            if (HasCompleteSetInHand(s)) { anyEnemyHasSet = true; break; }
+            if (HasCompleteSetInHand(s))
+            {
+                anyEnemyHasSet = true;
+                break;
+            }
         }
 
         if (anyEnemyHasSet)
@@ -361,8 +439,11 @@ public class KempsGameManager : NetworkBehaviour
         _unkempsWrong[team]++;
         if (_unkempsWrong[team] == 1) return;
 
-        AddScore(enemyTeam, 1);
-        EndRound_Server(enemyTeam);
+        if (_unkempsWrong[team] >= 2)
+        {
+            AddScore(enemyTeam, 1);
+            EndRound_Server(enemyTeam);
+        }
     }
 
     private void AddScore(int team, int delta)
@@ -373,14 +454,21 @@ public class KempsGameManager : NetworkBehaviour
 
     private void EndRound_Server(int winnerTeam)
     {
-        // round end ui
+        // Round end UI (3..2..1 win/lose)
         PlayRoundEndClientRpc(winnerTeam);
 
         GameStarted.Value = false;
         ResetRoundFlags_Server();
-        CleanupAllSpawnedCards_Server();
+
+        // Round biter bitmez discard sıfırlansın (visual + ids)
+        ClearDiscardPile_Server();
+
+        // Elde/center kartlarını da temizle
+        DespawnAllHandAndCenter_Server();
+
         RoundIndex.Value += 1;
 
+        // hedef skora ulaşıldı mı?
         CheckGameOver_Server();
     }
 
@@ -399,11 +487,9 @@ public class KempsGameManager : NetworkBehaviour
             GameOver.Value = true;
             GameStarted.Value = false;
 
-            // oyun bitti -> end panel
             ShowGameOverClientRpc(winnerTeam, t0, t1);
 
-            // play-again oylarını sıfırla
-            for (int i = 0; i < 4; i++) _playAgainVote[i] = false;
+            Debug.Log($"[KempsGameManager] GAME OVER winnerTeam={winnerTeam} score={t0}-{t1}");
         }
     }
 
@@ -450,7 +536,9 @@ public class KempsGameManager : NetworkBehaviour
     [ServerRpc(RequireOwnership = false)]
     public void RequestDropHandCardServerRpc(int seatIndex, int handIndex, ServerRpcParams rpcParams = default)
     {
-        if (GameOver.Value || !GameStarted.Value) return;
+        if (GameOver.Value) return;
+        if (!GameStarted.Value) return;
+
         if (seatIndex < 0 || seatIndex >= 4) return;
         if (handIndex < 0 || handIndex >= 4) return;
         if (_pendingHandIndex[seatIndex] != -1) return;
@@ -461,7 +549,11 @@ public class KempsGameManager : NetworkBehaviour
         int centerIndex = -1;
         for (int i = 4; i < 8; i++)
         {
-            if (_centerCards[i] == null) { centerIndex = i; break; }
+            if (_centerCards[i] == null)
+            {
+                centerIndex = i;
+                break;
+            }
         }
         if (centerIndex == -1) return;
 
@@ -475,13 +567,16 @@ public class KempsGameManager : NetworkBehaviour
         card.FaceUp.Value = true;
 
         MoveToSlot_NoParent(card.transform, _centerSlots[centerIndex]);
+
         _passed[seatIndex] = false;
     }
 
     [ServerRpc(RequireOwnership = false)]
     public void RequestTakeCenterCardServerRpc(int seatIndex, int centerIndex, ServerRpcParams rpcParams = default)
     {
-        if (GameOver.Value || !GameStarted.Value) return;
+        if (GameOver.Value) return;
+        if (!GameStarted.Value) return;
+
         if (seatIndex < 0 || seatIndex >= 4) return;
         if (centerIndex < 0 || centerIndex >= 8) return;
 
@@ -490,6 +585,7 @@ public class KempsGameManager : NetworkBehaviour
 
         var card = _centerCards[centerIndex];
         if (card == null) return;
+
         if (_handCards[seatIndex, handIndex] != null) return;
 
         _centerCards[centerIndex] = null;
@@ -502,100 +598,113 @@ public class KempsGameManager : NetworkBehaviour
         card.FaceUp.Value = true;
 
         MoveToSlot_NoParent(card.transform, _handSlots[seatIndex, handIndex]);
+
         _passed[seatIndex] = false;
     }
 
     // =========================
-    // END MENU ACTIONS (NEW)
+    // END PANEL BUTTONS (PlayAgain / Lobby / MainMenu)
     // =========================
-
-    // Her oyuncu basar, server oy verir. Herkes basınca Game sahnesini tekrar yükler (same teams).
     [ServerRpc(RequireOwnership = false)]
     public void RequestPlayAgainServerRpc(ServerRpcParams rpcParams = default)
     {
-        if (!IsServer) return;
-        if (!GameOver.Value) return;
+        ulong sender = rpcParams.Receive.SenderClientId;
+        if (!IsHostClientRequest(sender)) return;
 
-        int seat = GetSeatFromClientId(rpcParams.Receive.SenderClientId);
-        if (seat < 0) return;
+        Debug.Log("[KempsGameManager] PlayAgain requested (HOST). Reset match state.");
 
-        _playAgainVote[seat] = true;
-        Debug.Log($"[END] PlayAgain vote seat={seat}");
-
-        // herkes oy verdi mi?
-        for (int i = 0; i < 4; i++)
-        {
-            // oyunda olmayan seat’ler varsa da (2 kişi vs) istersen bu kısmı “connected seat”e göre yaparız.
-            if (_playAgainVote[i] == false)
-                return;
-        }
-
-        // reset match state
         GameOver.Value = false;
         GameStarted.Value = false;
+
         Team0Score.Value = 0;
         Team1Score.Value = 0;
         RoundIndex.Value = 1;
 
-        for (int i = 0; i < 4; i++) _playAgainVote[i] = false;
+        ClearDiscardPile_Server();
+        DespawnAllHandAndCenter_Server();
+        ResetRoundFlags_Server();
+        RebuildFullDeck_Server();
 
-        // target skor aynı kalsın
-        KempsSession.TargetScore = TargetScore.Value;
-
-        Debug.Log("[END] Everyone voted -> Reload Game scene");
-        NetworkManager.SceneManager.LoadScene("Game", LoadSceneMode.Single);
-    }
-
-    // Lobby’ye dön: takımları sıfırla (None) ve ready false, seat -1
-    [ServerRpc(RequireOwnership = false)]
-    public void RequestGoLobbyServerRpc(ServerRpcParams rpcParams = default)
-    {
-        if (!IsServer) return;
-        if (!IsHostClientRequest(rpcParams.Receive.SenderClientId)) return;
-
-        ResetPlayersForLobby_Server();
-
-        GameOver.Value = false;
-        GameStarted.Value = false;
-        Team0Score.Value = 0;
-        Team1Score.Value = 0;
-        RoundIndex.Value = 1;
-
-        Debug.Log("[END] Host -> Lobby scene");
-        NetworkManager.SceneManager.LoadScene("Lobby", LoadSceneMode.Single);
-    }
-
-    // MainMenu: network’ü kapatıp herkesi main menuye at
-    [ServerRpc(RequireOwnership = false)]
-    public void RequestGoMainMenuServerRpc(ServerRpcParams rpcParams = default)
-    {
-        if (!IsServer) return;
-        if (!IsHostClientRequest(rpcParams.Receive.SenderClientId)) return;
-
-        Debug.Log("[END] Host -> MainMenu (shutdown)");
-        GoMainMenuClientRpc();
-        NetworkManager.Shutdown();
-        SceneManager.LoadScene("MainMenu");
+        ResetHudClientRpc();
     }
 
     [ClientRpc]
-    private void GoMainMenuClientRpc()
+    private void ResetHudClientRpc()
     {
-        if (IsServer) return; // host zaten kendi tarafında yaptı
-        NetworkManager.Singleton.Shutdown();
-        SceneManager.LoadScene("MainMenu");
+        if (KempsHUD.Instance != null)
+            KempsHUD.Instance.ResetForPlayAgain();
     }
 
-    private void ResetPlayersForLobby_Server()
+    [ServerRpc(RequireOwnership = false)]
+    public void RequestBackToLobbyServerRpc(ServerRpcParams rpcParams = default)
     {
-        var players = FindObjectsByType<NetworkPlayer>(FindObjectsSortMode.None);
-        foreach (var p in players)
+        ulong sender = rpcParams.Receive.SenderClientId;
+        if (!IsHostClientRequest(sender)) return;
+
+        Debug.Log("[KempsGameManager] BackToLobby requested (HOST).");
+
+        // İstersen burada da reset atabilirsin (opsiyonel)
+        GameOver.Value = false;
+        GameStarted.Value = false;
+        ClearDiscardPile_Server();
+        DespawnAllHandAndCenter_Server();
+
+        NetworkManager.Singleton.SceneManager.LoadScene("Lobby", LoadSceneMode.Single);
+    }
+
+    [ServerRpc(RequireOwnership = false)]
+    public void RequestMainMenuServerRpc(ServerRpcParams rpcParams = default)
+    {
+        // MainMenu: herkes network’ten çıksın, MainMenu’ye dönsün, PlayerRoot(Clone) kalmasın.
+        Debug.Log("[KempsGameManager] MainMenu requested (Server). Returning everyone to MainMenu + shutdown.");
+
+        ReturnToMainMenuClientRpc();
+
+        // Server tarafında da kapatıp MainMenu’ye dön
+        StartCoroutine(Co_ServerShutdownAndLoadMainMenu());
+    }
+
+    [ClientRpc]
+    private void ReturnToMainMenuClientRpc()
+    {
+        Debug.Log("[KempsGameManager] ReturnToMainMenuClientRpc received.");
+        StartCoroutine(Co_ClientShutdownAndLoadMainMenu());
+    }
+
+    private IEnumerator Co_ClientShutdownAndLoadMainMenu()
+    {
+        // RPC'nin UI thread’de tamamlanmasına 1 frame ver
+        yield return null;
+
+        var nm = NetworkManager.Singleton;
+        if (nm != null)
         {
-            if (p == null) continue;
-            p.PlayerTeam.Value = Team.None;
-            p.IsReady.Value = false;
-            p.SeatIndex.Value = -1;
+            // Spawnlı objeler kalsın istemiyoruz
+            if (nm.IsListening)
+                nm.Shutdown();
+
+            // DontDestroyOnLoad’da kaldığı için, MainMenu’de PlayerRoot(Clone) türemesin diye tamamen yok et
+            Destroy(nm.gameObject);
         }
+
+        SceneManager.LoadScene("MainMenu", LoadSceneMode.Single);
+    }
+
+    private IEnumerator Co_ServerShutdownAndLoadMainMenu()
+    {
+        // ClientRpc'nin gitmesine şans ver
+        yield return new WaitForSeconds(0.1f);
+
+        var nm = NetworkManager.Singleton;
+        if (nm != null)
+        {
+            if (nm.IsListening)
+                nm.Shutdown();
+
+            Destroy(nm.gameObject);
+        }
+
+        SceneManager.LoadScene("MainMenu", LoadSceneMode.Single);
     }
 
     // =========================

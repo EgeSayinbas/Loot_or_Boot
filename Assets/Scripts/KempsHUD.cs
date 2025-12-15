@@ -62,14 +62,18 @@ public class KempsHUD : MonoBehaviour
         var gm = KempsGameManager.Instance;
         if (gm == null || txtRoundInfo == null) return;
 
+        // team0=Red, team1=Blue
         int round = gm.RoundIndex.Value;
         int red = gm.Team0Score.Value;
         int blue = gm.Team1Score.Value;
 
-        txtRoundInfo.text = $"Round {round}\nRed {red} : Blue {blue}";
+        // İstersen Target'ı da yazdırabilirsin:
+        int target = gm.TargetScore.Value;
+
+        txtRoundInfo.text = $"Round {round}\nRed {red} : Blue {blue}\n(Target {target})";
     }
 
-    // ===== ROUND END =====
+    // ===== ROUND END (3..2..1) =====
     public void PlayRoundEndSequence(int winnerTeam)
     {
         if (_gameOverShown) return;
@@ -109,7 +113,7 @@ public class KempsHUD : MonoBehaviour
         if (txtCountDown != null) txtCountDown.text = "";
     }
 
-    // ===== GAME OVER =====
+    // ===== GAME OVER (End panels) =====
     public void ShowGameOver(int winnerTeam, int team0Score, int team1Score)
     {
         _gameOverShown = true;
@@ -136,6 +140,13 @@ public class KempsHUD : MonoBehaviour
         if (txtEndLose != null && !iWon) txtEndLose.text = "YOU LOSE!";
     }
 
+    public void ResetForPlayAgain()
+    {
+        _gameOverShown = false;
+        HideAllPanelsImmediate();
+        RefreshTopInfo();
+    }
+
     private void HideAllPanelsImmediate()
     {
         HideRoundPanelsImmediate();
@@ -151,6 +162,6 @@ public class KempsHUD : MonoBehaviour
         int seat = local.SeatIndex.Value;
         if (seat < 0) return -1;
 
-        return seat % 2;
+        return seat % 2; // team0 red, team1 blue
     }
 }

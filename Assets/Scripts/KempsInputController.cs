@@ -8,13 +8,15 @@ public class KempsInputController : MonoBehaviour
 
     private void Awake()
     {
-        // KRİTİK: Artık duplicate varsa Destroy ETMİYORUZ.
-        // Çünkü inspector’daki Button.OnClick referansı o objeyi hedefliyor olabilir.
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
         Instance = this;
-        Debug.Log("[UI] KempsInputController Awake (alive)");
     }
 
-    // ====== GAMEPLAY BUTTONS ======
+    // ===== In-Game Buttons =====
     public void OnClickPass()
     {
         Debug.Log("[UI] PASS clicked");
@@ -43,7 +45,7 @@ public class KempsInputController : MonoBehaviour
         KempsGameManager.Instance.RequestDeckClickServerRpc();
     }
 
-    // ====== END GAME BUTTONS ======
+    // ===== End Panels Buttons =====
     public void OnClickPlayAgain()
     {
         Debug.Log("[UI] PLAY AGAIN clicked");
@@ -53,19 +55,19 @@ public class KempsInputController : MonoBehaviour
 
     public void OnClickBackToLobby()
     {
-        Debug.Log("[UI] LOBBY clicked");
+        Debug.Log("[UI] BACK TO LOBBY clicked");
         if (KempsGameManager.Instance == null) return;
-        KempsGameManager.Instance.RequestGoLobbyServerRpc();
+        KempsGameManager.Instance.RequestBackToLobbyServerRpc();
     }
 
     public void OnClickMainMenu()
     {
         Debug.Log("[UI] MAIN MENU clicked");
         if (KempsGameManager.Instance == null) return;
-        KempsGameManager.Instance.RequestGoMainMenuServerRpc();
+        KempsGameManager.Instance.RequestMainMenuServerRpc();
     }
 
-    // ====== CARD CLICK (swap flow) ======
+    // ===== Card Click =====
     public void OnCardClicked(Card3D card3D)
     {
         if (KempsGameManager.Instance == null) return;
@@ -75,9 +77,13 @@ public class KempsInputController : MonoBehaviour
 
         var local = NetworkPlayer.Local;
         if (local == null) return;
+
         int mySeat = local.SeatIndex.Value;
 
-        // Hand card
+        // Discard gibi "slotIndex < 0" kartlara tıklayınca hiçbir şey yapma
+        if (card.SlotIndex.Value < 0) return;
+
+        // 1) Hand click -> drop to center extra
         if (card.Zone.Value == CardZone.Hand)
         {
             if (card.SeatIndex.Value != mySeat) return;
@@ -93,7 +99,7 @@ public class KempsInputController : MonoBehaviour
             return;
         }
 
-        // Center card
+        // 2) Center click -> take (only if previously dropped)
         if (card.Zone.Value == CardZone.Center)
         {
             if (selectedHandCard == null)

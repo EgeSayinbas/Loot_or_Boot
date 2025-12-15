@@ -1411,7 +1411,7 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 597940279}
+      - m_Target: {fileID: 1046975886}
         m_TargetAssemblyTypeName: KempsInputController, Assembly-CSharp
         m_MethodName: OnClickUnkemps
         m_Mode: 1
@@ -1962,7 +1962,6 @@ GameObject:
   - component: {fileID: 597940278}
   - component: {fileID: 597940276}
   - component: {fileID: 597940277}
-  - component: {fileID: 597940279}
   m_Layer: 0
   m_Name: KempsManager
   m_TagString: Untagged
@@ -2019,24 +2018,12 @@ Transform:
   m_GameObject: {fileID: 597940275}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.0637, y: 0, z: 0.62111}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &597940279
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 597940275}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d5aac1c8ee5da264f9c6ee2bdd955440, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::KempsInputController
 --- !u!1 &681799280
 GameObject:
   m_ObjectHideFlags: 0
@@ -5309,7 +5296,7 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 597940279}
+      - m_Target: {fileID: 1046975886}
         m_TargetAssemblyTypeName: KempsInputController, Assembly-CSharp
         m_MethodName: OnClickKemps
         m_Mode: 1
@@ -5671,7 +5658,7 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 597940279}
+      - m_Target: {fileID: 1046975886}
         m_TargetAssemblyTypeName: KempsInputController, Assembly-CSharp
         m_MethodName: OnClickPass
         m_Mode: 1
@@ -5991,8 +5978,6 @@ MonoBehaviour:
   endLosePanel: {fileID: 728997794}
   txtEndScore_Win: {fileID: 1156387155}
   txtEndScore_Lose: {fileID: 688792664}
-  txtEndWin: {fileID: 1390980341}
-  txtEndLose: {fileID: 1267470419}
 --- !u!1 &1736598653
 GameObject:
   m_ObjectHideFlags: 0
@@ -6154,13 +6139,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1801491669}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.7071068, y: 0, z: 0, w: 0.7071068}
-  m_LocalPosition: {x: 0.46, y: 0.7049, z: 1.2}
+  m_LocalRotation: {x: -0.7071068, y: 0, z: 0, w: 0.7071068}
+  m_LocalPosition: {x: 0.46, y: 0.7204, z: 1.1348}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1441523103}
-  m_LocalEulerAnglesHint: {x: 90, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: -90, y: 0, z: 0}
 --- !u!1 &1836901249
 GameObject:
   m_ObjectHideFlags: 0
