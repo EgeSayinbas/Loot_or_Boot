@@ -125,6 +125,7 @@ public class KempsHUD : MonoBehaviour
         }
 
         HideAllPanelsImmediate();
+        
 
         int myTeam = GetMyTeamSafe();
         bool iWon = (myTeam != -1 && myTeam == winnerTeam);
