@@ -8,6 +8,12 @@ public class CardView : NetworkBehaviour
     [SerializeField] private MeshRenderer frontRenderer;
     [SerializeField] private MeshRenderer backRenderer;
 
+    [Header("Scale")]
+    [SerializeField] private float centerScaleMultiplier = 1.5f;
+
+    private Vector3 defaultScale;
+    private bool defaultScaleCaptured;
+
     // Networked state
     public NetworkVariable<int> CardId = new NetworkVariable<int>(-1);
     public NetworkVariable<int> SeatIndex = new NetworkVariable<int>(-1);
@@ -18,10 +24,16 @@ public class CardView : NetworkBehaviour
     private static Dictionary<int, ArtCardData> _db;
     private MaterialPropertyBlock _mpb;
 
+    private void Awake()
+    {
+        CaptureDefaultScaleIfNeeded();
+    }
+
     public override void OnNetworkSpawn()
     {
         base.OnNetworkSpawn();
 
+        CaptureDefaultScaleIfNeeded();
         EnsureDbLoaded();
 
         _mpb ??= new MaterialPropertyBlock();
@@ -29,10 +41,34 @@ public class CardView : NetworkBehaviour
         CardId.OnValueChanged += (_, __) => RefreshVisual();
         SeatIndex.OnValueChanged += (_, __) => RefreshVisual();
         SlotIndex.OnValueChanged += (_, __) => RefreshVisual();
-        Zone.OnValueChanged += (_, __) => RefreshVisual();
         FaceUp.OnValueChanged += (_, __) => RefreshVisual();
 
+        // Scale sadece Zone’a baðlý (Center’da 1.5x, diðerlerinde normal)
+        Zone.OnValueChanged += (_, __) =>
+        {
+            RefreshScale();
+            RefreshVisual();
+        };
+
+        RefreshScale();
         RefreshVisual();
+    }
+
+    private void CaptureDefaultScaleIfNeeded()
+    {
+        if (defaultScaleCaptured) return;
+        defaultScale = transform.localScale;
+        defaultScaleCaptured = true;
+    }
+
+    private void RefreshScale()
+    {
+        if (!defaultScaleCaptured) CaptureDefaultScaleIfNeeded();
+
+        if (Zone.Value == CardZone.Center)
+            transform.localScale = defaultScale * centerScaleMultiplier;
+        else
+            transform.localScale = defaultScale;
     }
 
     private void EnsureDbLoaded()
@@ -74,7 +110,6 @@ public class CardView : NetworkBehaviour
         // Deck/Discard: genelde back
         if (!_db.TryGetValue(CardId.Value, out var data) || data == null)
         {
-            // data yoksa güvenli: back göster
             frontRenderer.gameObject.SetActive(false);
             backRenderer.gameObject.SetActive(true);
             return;
@@ -101,7 +136,7 @@ public class CardView : NetworkBehaviour
 
         r.GetPropertyBlock(_mpb);
         _mpb.SetTexture("_BaseMap", tex);
-        _mpb.SetTexture("_MainTex", tex); // bazý shader’lar bunu ister
+        _mpb.SetTexture("_MainTex", tex);
         r.SetPropertyBlock(_mpb);
     }
 
@@ -116,6 +151,8 @@ public class CardView : NetworkBehaviour
         SlotIndex.Value = slotIndex;
         FaceUp.Value = faceUp;
 
+        // Zone set edildiði için scale otomatik güncellenir, yine de güvenli:
+        RefreshScale();
         RefreshVisual();
     }
 }
