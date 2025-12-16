@@ -14,36 +14,34 @@ public class NetworkPlayer : NetworkBehaviour
     [Header("Camera / Head")]
     [SerializeField] private Camera playerCamera;          // PlayerCamera child
     [SerializeField] private AudioListener audioListener;  // PlayerCamera üstündeki
-    [SerializeField] private Transform headPivot;          // HeadPivot objesi
+    [SerializeField] private Transform cameraPivot;        // CameraPivot objesi
+    [SerializeField] private Transform headAim;            // HeadAim (rig içinde)
 
-    public Transform HeadPivot => headPivot;
+    public Transform CameraPivot => cameraPivot;
+    public Transform HeadAim => headAim;
 
     public static NetworkPlayer Local { get; private set; }
 
     // ==== Lobby / Takým Bilgileri ====
 
-    // Takým bilgisi
     public NetworkVariable<Team> PlayerTeam = new NetworkVariable<Team>(
         Team.None,
         NetworkVariableReadPermission.Everyone,
         NetworkVariableWritePermission.Server
     );
 
-    // Ready durumu
     public NetworkVariable<bool> IsReady = new NetworkVariable<bool>(
         false,
         NetworkVariableReadPermission.Everyone,
         NetworkVariableWritePermission.Server
     );
 
-    // Bu player host mu? (NetworkBehaviour.IsHost ile karýþmasýn diye isim farklý)
     public NetworkVariable<bool> IsHostPlayer = new NetworkVariable<bool>(
         false,
         NetworkVariableReadPermission.Everyone,
         NetworkVariableWritePermission.Server
     );
 
-    // Game sahnesinde hangi koltuða oturacaðý (0–3)
     public NetworkVariable<int> SeatIndex = new NetworkVariable<int>(
         -1,
         NetworkVariableReadPermission.Everyone,
@@ -51,7 +49,7 @@ public class NetworkPlayer : NetworkBehaviour
     );
 
     // ===========================
-    //  LÝFECYCLE
+    //  LIFECYCLE
     // ===========================
 
     public override void OnNetworkSpawn()
@@ -61,8 +59,18 @@ public class NetworkPlayer : NetworkBehaviour
         // Referanslarý inspector’da atamadýysan güvence olsun
         if (playerCamera == null)
             playerCamera = GetComponentInChildren<Camera>(true);
+
         if (playerCamera != null && audioListener == null)
             audioListener = playerCamera.GetComponent<AudioListener>();
+
+        if (cameraPivot == null && playerCamera != null)
+            cameraPivot = playerCamera.transform.parent; // PlayerCamera'nýn parent'ý genelde CameraPivot
+
+        if (headAim == null)
+        {
+            // Ýsim sabitse buradan bulsun (hierarchy'ne göre)
+            headAim = FindDeepChild(transform, "HeadAim");
+        }
 
         if (IsOwner)
         {
@@ -80,9 +88,7 @@ public class NetworkPlayer : NetworkBehaviour
             IsHostPlayer.Value = true;
 
             if (LobbyManager.Instance != null)
-            {
                 LobbyManager.Instance.RefreshUIClientRpc();
-            }
         }
     }
 
@@ -101,8 +107,24 @@ public class NetworkPlayer : NetworkBehaviour
             audioListener.enabled = enable;
     }
 
+    // Derin child arama (name ile)
+    private static Transform FindDeepChild(Transform parent, string name)
+    {
+        if (parent == null) return null;
+
+        for (int i = 0; i < parent.childCount; i++)
+        {
+            var c = parent.GetChild(i);
+            if (c.name == name) return c;
+
+            var r = FindDeepChild(c, name);
+            if (r != null) return r;
+        }
+        return null;
+    }
+
     // ===========================
-    //  UI'dan server'a gelen istekler
+    //  UI'dan server'a gelen istekler (KORUNDU)
     // ===========================
 
     [ServerRpc(RequireOwnership = false)]

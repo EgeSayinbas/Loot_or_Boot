@@ -1,26 +1,34 @@
-using UnityEngine;
+ï»¿using UnityEngine;
 using Unity.Netcode;
 
 /// <summary>
-/// Sað mouse tuþuna basýlýyken kamerayý ve karakterin kafasýný çevirir.
-/// Yalnýzca local owner input alýr. Yaw ve pitch deðerleri NetworkVariable ile
-/// diðer client'lara senkronlanýr.
+/// SaÄŸ mouse basÄ±lÄ±yken:
+/// - Owner kendi kamerayÄ± dÃ¶ndÃ¼rÃ¼r (yaw=Y, pitch=X)
+/// - HeadAim'i senin rig eksenine gÃ¶re dÃ¶ndÃ¼rÃ¼r:
+///     yaw  -> -X
+///     pitch-> +Z  (ama kamera ile aynÄ± yÃ¶n iÃ§in pitch iÅŸareti terslenir)
+/// GÃ¶vde SABÄ°T.
+/// DiÄŸer client'lar sadece HeadAim rotasyonunu gÃ¶rÃ¼r (kamera zaten kapalÄ±).
 /// </summary>
 public class HeadLookController : NetworkBehaviour
 {
-    [Header("Refs")]
-    [SerializeField] private Transform bodyRoot;   // Y ekseninde dönecek olan (genelde Player root)
-    [SerializeField] private Transform headPivot;  // Kamera/kafa pivotu (HeadPivot)
+    [Header("Refs (Hierarchy'ne uygun)")]
+    [SerializeField] private Transform cameraPivot; // CameraPivot
+    [SerializeField] private Transform headAim;     // HeadAim
 
-    [Header("Ayarlar")]
+    [Header("Settings")]
     [SerializeField] private float sensitivity = 120f;
     [SerializeField] private float minPitch = -50f;
     [SerializeField] private float maxPitch = 50f;
 
-    private float yaw;
-    private float pitch;
+    // Camera angles
+    private float yaw;   // around Y
+    private float pitch; // around X
 
-    // Owner yazar, herkes okur
+    // Rig default'unu korumak iÃ§in
+    private Quaternion headAimBaseLocalRot;
+
+    // Network (Owner yazar, herkes okur)
     private NetworkVariable<float> netYaw = new NetworkVariable<float>(
         0f,
         NetworkVariableReadPermission.Everyone,
@@ -37,100 +45,133 @@ public class HeadLookController : NetworkBehaviour
     {
         base.OnNetworkSpawn();
 
-        if (bodyRoot == null)
-            bodyRoot = transform;
-
-        if (headPivot == null)
+        // ReferanslarÄ± NetworkPlayer'dan Ã§ek (senin dÃ¼zenine uygun)
+        if (cameraPivot == null || headAim == null)
         {
             var np = GetComponent<NetworkPlayer>();
             if (np != null)
-                headPivot = np.HeadPivot;
+            {
+                if (cameraPivot == null) cameraPivot = np.CameraPivot;
+                if (headAim == null) headAim = np.HeadAim;
+            }
         }
 
-        // Baþlangýç yaw/pitch deðerleri
-        if (bodyRoot != null)
-            yaw = bodyRoot.eulerAngles.y;
+        // Son Ã§are: isimle bul
+        if (cameraPivot == null)
+            cameraPivot = transform.Find("CameraPivot");
 
-        if (headPivot != null)
+        if (headAim == null)
+            headAim = FindDeepChild(transform, "HeadAim");
+
+        if (cameraPivot == null)
+            Debug.LogError("[HeadLookController] CameraPivot bulunamadÄ±! Inspectorâ€™da atayÄ±n.");
+
+        if (headAim == null)
+            Debug.LogError("[HeadLookController] HeadAim bulunamadÄ±! Inspectorâ€™da atayÄ±n.");
+
+        if (headAim != null)
+            headAimBaseLocalRot = headAim.localRotation;
+
+        // BaÅŸlangÄ±Ã§ aÃ§Ä±larÄ±nÄ± cameraPivot'tan al (LOCAL Ã¼zerinden)
+        if (cameraPivot != null)
         {
-            float x = headPivot.localEulerAngles.x;
+            yaw = cameraPivot.localEulerAngles.y;
+
+            float x = cameraPivot.localEulerAngles.x;
             if (x > 180f) x -= 360f;
-            pitch = x;
+            pitch = Mathf.Clamp(x, minPitch, maxPitch);
         }
 
-        // Net deðerleri baþlangýçla eþitle
         if (IsOwner)
         {
             netYaw.Value = yaw;
             netPitch.Value = pitch;
+
+            ApplyCameraLocal(yaw, pitch);
+            ApplyHeadAimLocal(yaw, pitch);
+        }
+        else
+        {
+            // Remote: sadece headAim uygula (ilk spawn)
+            ApplyHeadAimLocal(netYaw.Value, netPitch.Value);
         }
 
-        netYaw.OnValueChanged += OnNetYawChanged;
-        netPitch.OnValueChanged += OnNetPitchChanged;
-    }
+        // IMPORTANT FIX: Remote tarafta apply ederken diÄŸer ekseni DAÄ°MA NetworkVariable'dan oku
+        netYaw.OnValueChanged += (_, v) =>
+        {
+            if (IsOwner) return;
+            yaw = v;
+            ApplyHeadAimLocal(yaw, netPitch.Value);
+        };
 
-    private void OnDestroyCstm()
-    {
-        netYaw.OnValueChanged -= OnNetYawChanged;
-        netPitch.OnValueChanged -= OnNetPitchChanged;
+        netPitch.OnValueChanged += (_, v) =>
+        {
+            if (IsOwner) return;
+            pitch = v;
+            ApplyHeadAimLocal(netYaw.Value, pitch);
+        };
     }
 
     private void Update()
     {
-        // Sadece kendi oyuncumuz input almalý
-        if (!IsOwner)
+        if (!IsOwner) return;
+        if (cameraPivot == null || headAim == null) return;
+
+        // SADECE saÄŸ mouse basÄ±lÄ±yken
+        if (!Input.GetMouseButton(1))
             return;
 
-        // Sað mouse basýlýyken bakýþ ve kafa çevir
-        if (Input.GetMouseButton(1))
+        float mouseX = Input.GetAxis("Mouse X");
+        float mouseY = Input.GetAxis("Mouse Y");
+
+        yaw += mouseX * sensitivity * Time.deltaTime;
+        pitch -= mouseY * sensitivity * Time.deltaTime;
+        pitch = Mathf.Clamp(pitch, minPitch, maxPitch);
+
+        // Local uygula
+        ApplyCameraLocal(yaw, pitch);
+        ApplyHeadAimLocal(yaw, pitch);
+
+        // Network'e yaz
+        netYaw.Value = yaw;
+        netPitch.Value = pitch;
+    }
+
+    private void ApplyCameraLocal(float y, float p)
+    {
+        // FIX: DÃ¼nya rotation yerine LOCAL rotation (pivot child ise en doÄŸru davranÄ±ÅŸ)
+        cameraPivot.localRotation = Quaternion.Euler(p, y, 0f);
+    }
+
+    private void ApplyHeadAimLocal(float y, float p)
+    {
+        if (headAim == null) return;
+
+        // Senin rig mapping'in:
+        //  - left/right -> HeadAim -X (yaw)
+        //  - up/down    -> HeadAim +Z (pitch)
+        //
+        // "kamera aÅŸaÄŸÄ± dÃ¶nerken kafa yukarÄ±" problemi => pitch iÅŸareti ters.
+        //      pitchZ = -p
+        Quaternion yawRot = Quaternion.AngleAxis(-y, Vector3.right);       // -X
+        Quaternion pitchRot = Quaternion.AngleAxis(-p, Vector3.forward);   // +Z ekseninde ama iÅŸaret ters (FIX)
+
+        // SÄ±ra: Ã¶nce yaw sonra pitch
+        headAim.localRotation = headAimBaseLocalRot * yawRot * pitchRot;
+    }
+
+    private static Transform FindDeepChild(Transform parent, string name)
+    {
+        if (parent == null) return null;
+
+        for (int i = 0; i < parent.childCount; i++)
         {
-            float mouseX = Input.GetAxis("Mouse X");
-            float mouseY = Input.GetAxis("Mouse Y");
+            var c = parent.GetChild(i);
+            if (c.name == name) return c;
 
-            yaw += mouseX * sensitivity * Time.deltaTime;
-            pitch -= mouseY * sensitivity * Time.deltaTime;
-            pitch = Mathf.Clamp(pitch, minPitch, maxPitch);
-
-            // Localde uygula
-            ApplyYawPitchLocal(yaw, pitch);
-
-            // Net deðiþkenlere yaz -> server üzerinden diðer client'lara gider
-            netYaw.Value = yaw;
-            netPitch.Value = pitch;
+            var r = FindDeepChild(c, name);
+            if (r != null) return r;
         }
-    }
-
-    // ---- Network callback'leri ----
-
-    private void OnNetYawChanged(float oldValue, float newValue)
-    {
-        // Owner zaten kendisi ayarlýyor; sadece diðerlerinde uygula
-        if (IsOwner) return;
-
-        yaw = newValue;
-        ApplyYawPitchLocal(yaw, pitch);
-    }
-
-    private void OnNetPitchChanged(float oldValue, float newValue)
-    {
-        if (IsOwner) return;
-
-        pitch = newValue;
-        ApplyYawPitchLocal(yaw, pitch);
-    }
-
-    // ---- Ortak uygulama fonksiyonu ----
-
-    private void ApplyYawPitchLocal(float y, float p)
-    {
-        if (bodyRoot != null)
-            bodyRoot.rotation = Quaternion.Euler(0f, y, 0f);
-
-        if (headPivot != null)
-        {
-            Vector3 e = headPivot.localEulerAngles;
-            e.x = p;
-            headPivot.localEulerAngles = e;
-        }
+        return null;
     }
 }
