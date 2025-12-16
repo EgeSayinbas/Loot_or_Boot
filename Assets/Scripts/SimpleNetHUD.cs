@@ -5,12 +5,12 @@ public class SimpleNetHud : MonoBehaviour
 {
     private void OnGUI()
     {
-        // Ekranýn sol üstüne basit butonlar çiziyoruz
+        
         GUILayout.BeginArea(new Rect(10, 10, 200, 200));
 
         if (!NetworkManager.Singleton.IsClient && !NetworkManager.Singleton.IsServer)
         {
-            // Henüz baðlý deðilsek
+            
             if (GUILayout.Button("Start Host"))
             {
                 NetworkManager.Singleton.StartHost();
@@ -23,7 +23,7 @@ public class SimpleNetHud : MonoBehaviour
         }
         else
         {
-            // Baðlýyken
+            
             GUILayout.Label($"Mode: " +
                 (NetworkManager.Singleton.IsServer ? "Server" : "Client"));
 
