@@ -12,7 +12,7 @@ public class KempsGameManager : NetworkBehaviour
 
     [Header("Scene Roots")]
     [SerializeField] private Transform centerCardsRoot;
-    [SerializeField] private Transform discardPileRoot;   // DiscardPileRoot (konumu ayarlı)
+    [SerializeField] private Transform discardPileRoot;
     [SerializeField] private Transform deckRoot;
 
     [Header("Prefabs")]
@@ -21,10 +21,10 @@ public class KempsGameManager : NetworkBehaviour
     [Header("Discard Visual")]
     [SerializeField] private float discardStackUpOffset = 0.005f;
 
-    // Slots
+    // Slots (server cache sadece kontrol için; follow client'ta name ile bulacak)
     private readonly Transform[] _centerSlots = new Transform[8];
 
-    // Spawned cards
+    // Spawned cards (server-side refs)
     private readonly CardView[] _centerCards = new CardView[8];
     private readonly CardView[,] _handCards = new CardView[4, 4];
 
@@ -34,7 +34,7 @@ public class KempsGameManager : NetworkBehaviour
     private readonly List<int> _drawPile = new List<int>();
     private readonly List<int> _discardIds = new List<int>();
 
-    // Discard visual objects (network objects moved to discard root)
+    // Discard visual ordering (server)
     private readonly List<CardView> _discardVisuals = new List<CardView>();
 
     // Pass state
@@ -42,16 +42,14 @@ public class KempsGameManager : NetworkBehaviour
 
     // ===== NETWORKED STATE =====
     public NetworkVariable<bool> GameStarted { get; private set; } = new NetworkVariable<bool>(false);
-    public NetworkVariable<int> Team0Score { get; private set; } = new NetworkVariable<int>(0); // team0 = Red
-    public NetworkVariable<int> Team1Score { get; private set; } = new NetworkVariable<int>(0); // team1 = Blue
+    public NetworkVariable<int> Team0Score { get; private set; } = new NetworkVariable<int>(0);
+    public NetworkVariable<int> Team1Score { get; private set; } = new NetworkVariable<int>(0);
     public NetworkVariable<int> RoundIndex { get; private set; } = new NetworkVariable<int>(1);
 
-    // GAME OVER
     public NetworkVariable<int> TargetScore { get; private set; } = new NetworkVariable<int>(3);
     public NetworkVariable<bool> GameOver { get; private set; } = new NetworkVariable<bool>(false);
 
     private readonly int[] _unkempsWrong = new int[2];
-
     private Dictionary<int, ArtCardData> _db;
 
     private void Awake()
@@ -122,7 +120,7 @@ public class KempsGameManager : NetworkBehaviour
     private bool IsHostClientRequest(ulong senderClientId) => senderClientId == NetworkManager.ServerClientId;
 
     // =========================
-    // NEW: Hand slot source = Player Prefab
+    // Hand slot source = Player Prefab
     // =========================
     private Transform GetHandSlotFromPlayerPrefab_Server(int seat, int slot)
     {
@@ -131,9 +129,7 @@ public class KempsGameManager : NetworkBehaviour
         {
             if (p == null) continue;
             if (p.SeatIndex.Value != seat) continue;
-
-            var t = p.GetHandSlot(slot);
-            return t;
+            return p.GetHandSlot(slot);
         }
         return null;
     }
@@ -257,18 +253,14 @@ public class KempsGameManager : NetworkBehaviour
         int id = cv.CardId.Value;
         _discardIds.Add(id);
 
-        if (discardPileRoot != null)
-        {
-            var pos = discardPileRoot.position + (discardPileRoot.up * discardStackUpOffset * _discardVisuals.Count);
-            cv.transform.SetPositionAndRotation(pos, discardPileRoot.rotation);
-        }
-
-        cv.FaceUp.Value = false;
-
-        cv.SeatIndex.Value = -1;
-        cv.SlotIndex.Value = -1;
-
+        int discardIndex = _discardVisuals.Count;
         _discardVisuals.Add(cv);
+
+        // ✅ Server sadece STATE değiştirir. Konum client’ta CardFollowSlots ile gelir.
+        cv.Zone.Value = CardZone.Discard;
+        cv.FaceUp.Value = false;
+        cv.SeatIndex.Value = -1;
+        cv.SlotIndex.Value = discardIndex;
     }
 
     private void ClearDiscardPile_Server()
@@ -311,6 +303,7 @@ public class KempsGameManager : NetworkBehaviour
 
     private void SpawnCardToHand_Server(int cardId, int seat, int slot)
     {
+        // sadece validate için
         var target = GetHandSlotFromPlayerPrefab_Server(seat, slot);
         if (target == null || cardPrefab == null)
         {
@@ -318,7 +311,7 @@ public class KempsGameManager : NetworkBehaviour
             return;
         }
 
-        var go = Instantiate(cardPrefab, target.position, target.rotation);
+        var go = Instantiate(cardPrefab, Vector3.zero, Quaternion.identity);
         var net = go.GetComponent<NetworkObject>();
         net.Spawn();
 
@@ -333,7 +326,7 @@ public class KempsGameManager : NetworkBehaviour
         var target = _centerSlots[centerIndex];
         if (target == null || cardPrefab == null) return;
 
-        var go = Instantiate(cardPrefab, target.position, target.rotation);
+        var go = Instantiate(cardPrefab, Vector3.zero, Quaternion.identity);
         var net = go.GetComponent<NetworkObject>();
         net.Spawn();
 
@@ -341,12 +334,6 @@ public class KempsGameManager : NetworkBehaviour
         view.Server_Setup(cardId, CardZone.Center, seatIndex: -1, slotIndex: centerIndex, faceUp: faceUp);
 
         _centerCards[centerIndex] = view;
-    }
-
-    private void MoveToSlot_NoParent(Transform obj, Transform slot)
-    {
-        if (obj == null || slot == null) return;
-        obj.SetPositionAndRotation(slot.position, slot.rotation);
     }
 
     // =========================
@@ -520,7 +507,7 @@ public class KempsGameManager : NetworkBehaviour
     }
 
     // =========================
-    // HAND -> CENTER (drop/take) (aynı, sadece hedef slot artık player prefab)
+    // HAND -> CENTER (drop/take)
     // =========================
     [ServerRpc(RequireOwnership = false)]
     public void RequestDropHandCardServerRpc(int seatIndex, int handIndex, ServerRpcParams rpcParams = default)
@@ -550,12 +537,11 @@ public class KempsGameManager : NetworkBehaviour
         _centerCards[centerIndex] = card;
         _pendingHandIndex[seatIndex] = handIndex;
 
+        // ✅ sadece state
         card.Zone.Value = CardZone.Center;
         card.SeatIndex.Value = -1;
         card.SlotIndex.Value = centerIndex;
         card.FaceUp.Value = true;
-
-        MoveToSlot_NoParent(card.transform, _centerSlots[centerIndex]);
 
         _passed[seatIndex] = false;
     }
@@ -581,14 +567,11 @@ public class KempsGameManager : NetworkBehaviour
         _handCards[seatIndex, handIndex] = card;
         _pendingHandIndex[seatIndex] = -1;
 
+        // ✅ sadece state (host artık kendinde de görecek)
         card.Zone.Value = CardZone.Hand;
         card.SeatIndex.Value = seatIndex;
         card.SlotIndex.Value = handIndex;
         card.FaceUp.Value = true;
-
-        var slotT = GetHandSlotFromPlayerPrefab_Server(seatIndex, handIndex);
-        if (slotT != null)
-            MoveToSlot_NoParent(card.transform, slotT);
 
         _passed[seatIndex] = false;
     }

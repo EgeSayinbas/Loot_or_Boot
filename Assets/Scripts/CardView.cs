@@ -98,15 +98,14 @@ public class CardView : NetworkBehaviour
 
         bool shouldShowFront = false;
 
-        // Center: faceUp ise herkes görür
+        // Center açık mı?
         if (Zone.Value == CardZone.Center && FaceUp.Value)
             shouldShowFront = true;
 
-        // Hand: sadece sahibi görür
+        // Hand ise sadece sahibi görsün
         if (Zone.Value == CardZone.Hand)
             shouldShowFront = IsMyHandCard();
 
-        // data yoksa back
         if (!_db.TryGetValue(CardId.Value, out var data) || data == null)
         {
             frontRenderer.gameObject.SetActive(false);
