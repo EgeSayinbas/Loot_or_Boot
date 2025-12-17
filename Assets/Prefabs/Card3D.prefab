@@ -26,12 +26,12 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 3721628838246863277}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 1, z: 0, w: 0}
+  m_LocalRotation: {x: -0, y: 1, z: -0, w: 0}
   m_LocalPosition: {x: 0, y: 0, z: -0.0005}
   m_LocalScale: {x: 0.06, y: 0.09, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 9146937269056106519}
+  m_Father: {fileID: 3619075025775086449}
   m_LocalEulerAnglesHint: {x: 0, y: 180, z: 0}
 --- !u!33 &6219641585084436059
 MeshFilter:
@@ -115,12 +115,12 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 3896879127634632930}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 0.06, y: 0.09, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 9146937269056106519}
+  m_Father: {fileID: 3619075025775086449}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!33 &1548906842862138352
 MeshFilter:
@@ -178,6 +178,39 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!1 &4477145386145313827
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3619075025775086449}
+  m_Layer: 0
+  m_Name: VisiualRoot
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &3619075025775086449
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4477145386145313827}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 677632268953075312}
+  - {fileID: 1513276006635722080}
+  m_Father: {fileID: 9146937269056106519}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &8373563559733652702
 GameObject:
   m_ObjectHideFlags: 0
@@ -192,6 +225,7 @@ GameObject:
   - component: {fileID: 4182001668321078662}
   - component: {fileID: 5801057006788500251}
   - component: {fileID: -8333087977913861093}
+  - component: {fileID: 3538836653886425891}
   m_Layer: 0
   m_Name: Card3D
   m_TagString: Untagged
@@ -212,8 +246,7 @@ Transform:
   m_LocalScale: {x: 3, y: 3, z: 3}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 677632268953075312}
-  - {fileID: 1513276006635722080}
+  - {fileID: 3619075025775086449}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!65 &1798658859747806784
@@ -317,6 +350,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CardView
   frontRenderer: {fileID: 1909126600740636140}
   backRenderer: {fileID: 5610720978984000290}
+  centerScaleMultiplier: 1.5
   CardId:
     m_InternalValue: -1
   SeatIndex:
@@ -327,3 +361,16 @@ MonoBehaviour:
     m_InternalValue: 0
   FaceUp:
     m_InternalValue: 0
+--- !u!114 &3538836653886425891
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8373563559733652702}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0c2fe0c98c740bc488adc79fb2a10851, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CardFollowSlots
+  view: {fileID: -8333087977913861093}

@@ -14,16 +14,26 @@ public class NetworkPlayer : NetworkBehaviour
     [Header("Camera / Head")]
     [SerializeField] private Camera playerCamera;          // PlayerCamera child
     [SerializeField] private AudioListener audioListener;  // PlayerCamera üstündeki
-    [SerializeField] private Transform cameraPivot;        // CameraPivot objesi
+    [SerializeField] private Transform cameraPivot;        // CameraPivot
     [SerializeField] private Transform headAim;            // HeadAim (rig içinde)
+
+    [Header("Hand Slots (Player Prefab)")]
+    [SerializeField] private Transform handSlotRoot;       // HandR_CardSlotRoot
+    [SerializeField] private Transform[] handSlots = new Transform[4]; // HandR_CardSlot_0..3
 
     public Transform CameraPivot => cameraPivot;
     public Transform HeadAim => headAim;
 
+    public Transform HandSlotRoot => handSlotRoot;
+    public Transform GetHandSlot(int index)
+    {
+        if (index < 0 || index >= handSlots.Length) return null;
+        return handSlots[index];
+    }
+
     public static NetworkPlayer Local { get; private set; }
 
     // ==== Lobby / Takým Bilgileri ====
-
     public NetworkVariable<Team> PlayerTeam = new NetworkVariable<Team>(
         Team.None,
         NetworkVariableReadPermission.Everyone,
@@ -51,7 +61,6 @@ public class NetworkPlayer : NetworkBehaviour
     // ===========================
     //  LIFECYCLE
     // ===========================
-
     public override void OnNetworkSpawn()
     {
         base.OnNetworkSpawn();
@@ -64,12 +73,22 @@ public class NetworkPlayer : NetworkBehaviour
             audioListener = playerCamera.GetComponent<AudioListener>();
 
         if (cameraPivot == null && playerCamera != null)
-            cameraPivot = playerCamera.transform.parent; // PlayerCamera'nýn parent'ý genelde CameraPivot
+            cameraPivot = playerCamera.transform.parent; // PlayerCamera parent = CameraPivot
 
         if (headAim == null)
-        {
-            // Ýsim sabitse buradan bulsun (hierarchy'ne göre)
             headAim = FindDeepChild(transform, "HeadAim");
+
+        // Hand slot root + 0..3 bul
+        if (handSlotRoot == null)
+            handSlotRoot = FindDeepChild(transform, "HandR_CardSlotRoot");
+
+        if (handSlotRoot != null)
+        {
+            for (int i = 0; i < 4; i++)
+            {
+                if (handSlots[i] == null)
+                    handSlots[i] = FindDeepChild(handSlotRoot, $"HandR_CardSlot_{i}");
+            }
         }
 
         if (IsOwner)
@@ -126,7 +145,6 @@ public class NetworkPlayer : NetworkBehaviour
     // ===========================
     //  UI'dan server'a gelen istekler (KORUNDU)
     // ===========================
-
     [ServerRpc(RequireOwnership = false)]
     public void RequestChangeTeamServerRpc(Team newTeam, ServerRpcParams rpcParams = default)
     {

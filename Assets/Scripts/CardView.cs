@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+ï»¿using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -43,7 +43,6 @@ public class CardView : NetworkBehaviour
         SlotIndex.OnValueChanged += (_, __) => RefreshVisual();
         FaceUp.OnValueChanged += (_, __) => RefreshVisual();
 
-        // Scale sadece Zone’a baðlý (Center’da 1.5x, diðerlerinde normal)
         Zone.OnValueChanged += (_, __) =>
         {
             RefreshScale();
@@ -99,15 +98,15 @@ public class CardView : NetworkBehaviour
 
         bool shouldShowFront = false;
 
-        // Center açýk mý?
+        // Center: faceUp ise herkes gÃ¶rÃ¼r
         if (Zone.Value == CardZone.Center && FaceUp.Value)
             shouldShowFront = true;
 
-        // Hand ise sadece sahibi görsün
+        // Hand: sadece sahibi gÃ¶rÃ¼r
         if (Zone.Value == CardZone.Hand)
             shouldShowFront = IsMyHandCard();
 
-        // Deck/Discard: genelde back
+        // data yoksa back
         if (!_db.TryGetValue(CardId.Value, out var data) || data == null)
         {
             frontRenderer.gameObject.SetActive(false);
@@ -115,7 +114,6 @@ public class CardView : NetworkBehaviour
             return;
         }
 
-        // Texture bas
         if (shouldShowFront)
         {
             ApplyTexture(frontRenderer, data.frontTexture);
@@ -140,7 +138,7 @@ public class CardView : NetworkBehaviour
         r.SetPropertyBlock(_mpb);
     }
 
-    // Server sadece bu fonksiyonu çaðýrýr (spawn sonrasý)
+    // Server sadece bu fonksiyonu Ã§aÄŸÄ±rÄ±r (spawn sonrasÄ±)
     public void Server_Setup(int cardId, CardZone zone, int seatIndex, int slotIndex, bool faceUp)
     {
         if (!IsServer) return;
@@ -151,7 +149,6 @@ public class CardView : NetworkBehaviour
         SlotIndex.Value = slotIndex;
         FaceUp.Value = faceUp;
 
-        // Zone set edildiði için scale otomatik güncellenir, yine de güvenli:
         RefreshScale();
         RefreshVisual();
     }
