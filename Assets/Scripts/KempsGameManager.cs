@@ -19,7 +19,7 @@ public class KempsGameManager : NetworkBehaviour
     [SerializeField] private GameObject cardPrefab;
 
     [Header("Discard Visual")]
-    [SerializeField] private float discardStackUpOffset = 0.005f;
+    //[SerializeField] private float discardStackUpOffset = 0.005f;
 
     // Slots (server cache sadece kontrol için; follow client'ta name ile bulacak)
     private readonly Transform[] _centerSlots = new Transform[8];

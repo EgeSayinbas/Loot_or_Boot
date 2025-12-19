@@ -183,6 +183,8 @@ GameObject:
   - component: {fileID: -67315842467152813}
   - component: {fileID: 8527915792853843350}
   - component: {fileID: 5349470654964319045}
+  - component: {fileID: 7641082037188321471}
+  - component: {fileID: -3208070593913514622}
   m_Layer: 0
   m_Name: PlayerRoot
   m_TagString: Untagged
@@ -258,6 +260,13 @@ MonoBehaviour:
   audioListener: {fileID: 8466382791493526047}
   cameraPivot: {fileID: 2388049258988606433}
   headAim: {fileID: 7922441331009638317}
+  handSlotRoot: {fileID: 0}
+  handSlots:
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  animator: {fileID: 2995076423943753946}
   PlayerTeam:
     m_InternalValue: 0
   IsReady:
@@ -314,6 +323,65 @@ MonoBehaviour:
   sensitivity: 120
   minPitch: -50
   maxPitch: 50
+--- !u!114 &7641082037188321471
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4183864935463916073}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ec8f2b3b0f3d4714fbc3b0a176787cb2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::HeadThrowController
+  cameraPivot: {fileID: 2388049258988606433}
+  headSocket: {fileID: 7607343098819089676}
+  headBoneScale: {fileID: 7607343098819089676}
+  headProjectilePrefab: {fileID: 7081580060517173803, guid: ae0a5785d8568f94e9cde1f2707b90a6, type: 3}
+  throwSpeed: 8
+  upwardBoost: 0.5
+  returnDelay: 5
+  returnDuration: 0.35
+  returnCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+--- !u!114 &-3208070593913514622
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4183864935463916073}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0882aaf3d51f1c647a8a96cc3aa7b181, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::NetworkPlayerEmotes
+  animator: {fileID: 2995076423943753946}
+  head360StateName: Anim_Head360
+  chewStateName: Anim_Chew
 --- !u!1 &9087105683481888304
 GameObject:
   m_ObjectHideFlags: 0
@@ -354,6 +422,30 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 5281830405770230970}
     m_Modifications:
+    - target: {fileID: 1109667384789141308, guid: 4c67ed6c086451b4db54ac4d24b626bb, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3776951868441180298, guid: 4c67ed6c086451b4db54ac4d24b626bb, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6830512011386159132, guid: 4c67ed6c086451b4db54ac4d24b626bb, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 7442184399502367234, guid: 4c67ed6c086451b4db54ac4d24b626bb, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 7442184399502367234, guid: 4c67ed6c086451b4db54ac4d24b626bb, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 7442184399502367234, guid: 4c67ed6c086451b4db54ac4d24b626bb, type: 3}
+      propertyPath: m_LocalScale.z
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 8189179709687727534, guid: 4c67ed6c086451b4db54ac4d24b626bb, type: 3}
       propertyPath: m_LocalPosition.x
       value: -0.00218092
@@ -394,6 +486,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 8558320552146182156, guid: 4c67ed6c086451b4db54ac4d24b626bb, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 8858051749441068820, guid: 4c67ed6c086451b4db54ac4d24b626bb, type: 3}
       propertyPath: m_Name
       value: Skeleton
@@ -403,6 +499,16 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 4c67ed6c086451b4db54ac4d24b626bb, type: 3}
+--- !u!95 &2995076423943753946 stripped
+Animator:
+  m_CorrespondingSourceObject: {fileID: 2829917917779058644, guid: 4c67ed6c086451b4db54ac4d24b626bb, type: 3}
+  m_PrefabInstance: {fileID: 1068836876270128910}
+  m_PrefabAsset: {fileID: 0}
+--- !u!4 &7607343098819089676 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 7442184399502367234, guid: 4c67ed6c086451b4db54ac4d24b626bb, type: 3}
+  m_PrefabInstance: {fileID: 1068836876270128910}
+  m_PrefabAsset: {fileID: 0}
 --- !u!4 &7922441331009638317 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 7144801464267341987, guid: 4c67ed6c086451b4db54ac4d24b626bb, type: 3}

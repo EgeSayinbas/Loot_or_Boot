@@ -58,6 +58,8 @@ public class NetworkPlayer : NetworkBehaviour
         NetworkVariableWritePermission.Server
     );
 
+
+   
     // ===========================
     //  LIFECYCLE
     // ===========================
@@ -163,4 +165,6 @@ public class NetworkPlayer : NetworkBehaviour
         if (LobbyManager.Instance != null)
             LobbyManager.Instance.RefreshUIClientRpc();
     }
+
+  
 }
