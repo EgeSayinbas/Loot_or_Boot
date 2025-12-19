@@ -2788,7 +2788,6 @@ MonoBehaviour:
   discardPileRoot: {fileID: 1801491670}
   deckRoot: {fileID: 273170073}
   cardPrefab: {fileID: 8373563559733652702, guid: 32350e3529bb7ed44a658e64f5d9dcee, type: 3}
-  discardStackUpOffset: 0.005
 --- !u!4 &597940278
 Transform:
   m_ObjectHideFlags: 0
