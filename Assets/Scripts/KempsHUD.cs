@@ -70,7 +70,7 @@ public class KempsHUD : MonoBehaviour
         // İstersen Target'ı da yazdırabilirsin:
         int target = gm.TargetScore.Value;
 
-        txtRoundInfo.text = $"Round {round}\nRed {red} : Blue {blue}\n(Target {target})";
+        txtRoundInfo.text = $"Loot {round}\nCaptains {red} : Crew {blue}\n(Throphy {target})";
     }
 
     // ===== ROUND END (3..2..1) =====

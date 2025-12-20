@@ -29,6 +29,9 @@ public class LobbyManager : NetworkBehaviour
     public Button startButton;
     public Button readyButton;
 
+    [Header("Transition")]
+    [SerializeField] private NetworkTransitionHook transitionHook; // ✅ EKLENDİ
+
     private readonly List<NetworkPlayer> players = new List<NetworkPlayer>();
 
     public NetworkVariable<int> TargetScore = new NetworkVariable<int>(
@@ -65,10 +68,14 @@ public class LobbyManager : NetworkBehaviour
             NetworkManager.Singleton.OnClientDisconnectCallback += OnClientDisconnected;
         }
 
+        // ✅ TransitionHook otomatik bulma (inspector atamadıysan)
+        if (transitionHook == null)
+            transitionHook = FindFirstObjectByType<NetworkTransitionHook>();
+
         RefreshUI();
     }
 
-    private void OnDestroyx()
+    private void OnDestroy()
     {
         if (IsServer && NetworkManager.Singleton != null)
         {
@@ -132,12 +139,26 @@ public class LobbyManager : NetworkBehaviour
         if (!AreAllNonHostPlayersReady())
             return;
 
-        // ✅ TargetScore’u Game sahnesine taşı
+        // ✅ TargetScore’u taşımaya devam
         KempsSession.TargetScore = TargetScore.Value;
 
+        // ✅ Seat assign için listeyi garanti yenile
+        RebuildPlayerList();
         AssignSeatIndices();
-        KempsSession.TargetScore = TargetScore.Value;
-        NetworkManager.Singleton.SceneManager.LoadScene("Game", LoadSceneMode.Single);
+
+        // ✅ TransitionHook üzerinden scene geçişi
+        if (transitionHook == null)
+        {
+            if (TransitionUIController.Instance != null)
+                TransitionUIController.Instance.Show();
+            Debug.LogError("[LobbyManager] transitionHook NULL! Sahneye NetworkTransitionHook ekleyip inspector’dan bağla.");
+
+            // fallback (istersen kalsın)
+            NetworkManager.Singleton.SceneManager.LoadScene("Game", LoadSceneMode.Single);
+            return;
+        }
+
+        transitionHook.HostStartGame_WithTransition("Game");
     }
 
     // ==== Yardımcılar ====
@@ -225,14 +246,14 @@ public class LobbyManager : NetworkBehaviour
             else if (p.PlayerTeam.Value == Team.Blue) bluePlayers.Add(p);
         }
 
-        // ✅ Red = seat 0 & 2  => team0 (seat%2=0)
+        // ✅ Red = seat 0 & 2
         if (redPlayers.Count >= 2)
         {
             redPlayers[0].SeatIndex.Value = 0;
             redPlayers[1].SeatIndex.Value = 2;
         }
 
-        // ✅ Blue = seat 1 & 3 => team1 (seat%2=1)
+        // ✅ Blue = seat 1 & 3
         if (bluePlayers.Count >= 2)
         {
             bluePlayers[0].SeatIndex.Value = 1;
