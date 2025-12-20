@@ -266,7 +266,6 @@ MonoBehaviour:
   - {fileID: 0}
   - {fileID: 0}
   - {fileID: 0}
-  animator: {fileID: 2995076423943753946}
   PlayerTeam:
     m_InternalValue: 0
   IsReady:
@@ -339,10 +338,13 @@ MonoBehaviour:
   headSocket: {fileID: 7607343098819089676}
   headBoneScale: {fileID: 7607343098819089676}
   headProjectilePrefab: {fileID: 7081580060517173803, guid: ae0a5785d8568f94e9cde1f2707b90a6, type: 3}
-  throwSpeed: 8
+  throwSpeed: 5
   upwardBoost: 0.5
   returnDelay: 5
-  returnDuration: 0.35
+  faceMoveDirection: 1
+  addSpin: 1
+  spinAngularSpeed: 8
+  returnDuration: 1
   returnCurve:
     serializedVersion: 2
     m_Curve:
@@ -380,8 +382,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NetworkPlayerEmotes
   animator: {fileID: 2995076423943753946}
-  head360StateName: Anim_Head360
-  chewStateName: Anim_Chew
+  trigHead360: Trig_Head360
+  trigChew: Trig_Chew
+  trigSlay: Trig_Slay
+  trigThumbsup: Trig_Thumbsup
 --- !u!1 &9087105683481888304
 GameObject:
   m_ObjectHideFlags: 0
