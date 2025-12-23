@@ -1,19 +1,3 @@
-%YAML 1.1
-%TAG !u! tag:unity3d.com,2011:
---- !u!114 &11400000
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: cb46adcab9d3ebd409f73757ae9ebc91, type: 3}
-  m_Name: Green_El
-  m_EditorClassIdentifier: Assembly-CSharp::ArtCardData
-  cardId: 29
-  itemName: El
-  group: 2
-  frontTexture: {fileID: 2800000, guid: b9df7382be537a144b0dfefa4af9df03, type: 3}
-  backTexture: {fileID: 2800000, guid: b06dd0565ab079e44993ec20c3ce380a, type: 3}
+version https://git-lfs.github.com/spec/v1
+oid sha256:4568b05feb841b8b107806b83656ac9249522f6dc176ed0bc9105d14f754d64f
+size 629

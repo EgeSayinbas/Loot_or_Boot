@@ -1,19 +1,3 @@
-%YAML 1.1
-%TAG !u! tag:unity3d.com,2011:
---- !u!114 &11400000
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: cb46adcab9d3ebd409f73757ae9ebc91, type: 3}
-  m_Name: Blue_El
-  m_EditorClassIdentifier: Assembly-CSharp::ArtCardData
-  cardId: 3
-  itemName: El
-  group: 0
-  frontTexture: {fileID: 2800000, guid: 3fc8505f4e1c4e94bab9f1429acb90e0, type: 3}
-  backTexture: {fileID: 2800000, guid: b06dd0565ab079e44993ec20c3ce380a, type: 3}
+version https://git-lfs.github.com/spec/v1
+oid sha256:b6955bc20131c2cf625c1f2340eae95ccaa43aa6118b962fb31ba9328c5439dd
+size 627
