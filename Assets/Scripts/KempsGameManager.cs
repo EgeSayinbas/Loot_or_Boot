@@ -575,7 +575,30 @@ public class KempsGameManager : NetworkBehaviour
 
         _passed[seatIndex] = false;
     }
+    private void ResetLobbyState_Server()
+    {
+        // KempsSession tarafı
+        KempsSession.TargetScore = 3; // default ne istiyorsan
+        KempsSession.LobbyId = "";    // varsa
 
+        // Tüm player state reset
+        var players = FindObjectsByType<NetworkPlayer>(FindObjectsSortMode.None);
+        foreach (var p in players)
+        {
+            if (p == null) continue;
+
+            // Team/Ready/Seat resetle
+            p.PlayerTeam.Value = Team.None;
+            p.IsReady.Value = false;
+            p.SeatIndex.Value = -1;
+
+            // Host flag'i genelde kalabilir, ama istersen lobbyde tekrar belirliyorsun:
+            // p.IsHostPlayer.Value = (p.OwnerClientId == NetworkManager.ServerClientId);
+        }
+
+        // LobbyManager targetscore netvar'ı sahnede yeniden doğacak ama
+        // KempsSession.TargetScore’ı default’a çekmek en güvenlisi.
+    }
     // =========================
     // END PANEL BUTTONS (aynı)
     // =========================
@@ -612,7 +635,8 @@ public class KempsGameManager : NetworkBehaviour
     [ServerRpc(RequireOwnership = false)]
     public void RequestBackToLobbyServerRpc(ServerRpcParams rpcParams = default)
     {
-        ulong sender = rpcParams.Receive.SenderClientId;
+       
+            ulong sender = rpcParams.Receive.SenderClientId;
         if (!IsHostClientRequest(sender)) return;
 
         Debug.Log("[KempsGameManager] BackToLobby requested (HOST).");
@@ -621,6 +645,7 @@ public class KempsGameManager : NetworkBehaviour
         GameStarted.Value = false;
         ClearDiscardPile_Server();
         DespawnAllHandAndCenter_Server();
+        ResetLobbyState_Server();
 
         NetworkManager.Singleton.SceneManager.LoadScene("Lobby", LoadSceneMode.Single);
     }

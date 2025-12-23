@@ -105,5 +105,6 @@ AssetOrigin:
   productId: 195470
   packageName: Stylized Pirate Asset Set - Free Pack
   packageVersion: 1.0.0
-  assetPath: Assets/Stylized Pirate Asset Set/Art Assets/Vegetation/Palm Plants/PalmPlant_B.obj
+  assetPath: Assets/Asset_Packages/Stylized Pirate Asset Set/Art Assets/Vegetation/Palm
+    Plants/PalmPlant_B.obj
   uploadId: 437218

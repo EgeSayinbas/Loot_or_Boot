@@ -133,7 +133,7 @@ public class KempsHUD : MonoBehaviour
         if (endWinPanel != null) endWinPanel.SetActive(iWon);
         if (endLosePanel != null) endLosePanel.SetActive(!iWon);
 
-        string scoreLine = $"Red {team0Score} : Blue {team1Score} ";
+        string scoreLine = $"Captains {team0Score} : Crew {team1Score} ";
         if (txtEndScore_Win != null) txtEndScore_Win.text = scoreLine;
         if (txtEndScore_Lose != null) txtEndScore_Lose.text = scoreLine;
 
