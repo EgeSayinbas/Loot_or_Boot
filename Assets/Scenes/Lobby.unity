@@ -212,7 +212,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LobbyHostIpDisplay
   txtHostIp: {fileID: 1578874738}
-  prefix: 'Lobby ID : '
 --- !u!1001 &185916368
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -4663,15 +4662,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4090987031127480845, guid: 8de274dd177ae6443a817fbe63260913, type: 3}
       propertyPath: m_AnchorMax.x
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 4090987031127480845, guid: 8de274dd177ae6443a817fbe63260913, type: 3}
       propertyPath: m_AnchorMax.y
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 4090987031127480845, guid: 8de274dd177ae6443a817fbe63260913, type: 3}
       propertyPath: m_AnchorMin.x
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 4093040334560020388, guid: 8de274dd177ae6443a817fbe63260913, type: 3}
       propertyPath: m_Color.a
@@ -4851,15 +4850,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7091707702055617704, guid: 8de274dd177ae6443a817fbe63260913, type: 3}
       propertyPath: m_IsActive
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 9051687518117014101, guid: 8de274dd177ae6443a817fbe63260913, type: 3}
       propertyPath: m_AnchorMax.x
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 9051687518117014101, guid: 8de274dd177ae6443a817fbe63260913, type: 3}
       propertyPath: m_AnchorMax.y
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects:
