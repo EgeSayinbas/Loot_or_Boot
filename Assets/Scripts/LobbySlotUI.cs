@@ -1,4 +1,4 @@
-using TMPro;
+ï»¿using TMPro;
 using UnityEngine;
 
 public class LobbySlotUI : MonoBehaviour
@@ -9,7 +9,6 @@ public class LobbySlotUI : MonoBehaviour
 
     private void Reset()
     {
-        // Prefab'te otomatik doldurmak için
         if (playerNameText == null)
             playerNameText = GetComponentInChildren<TextMeshProUGUI>();
     }
@@ -20,8 +19,22 @@ public class LobbySlotUI : MonoBehaviour
 
         if (playerNameText != null)
         {
-            playerNameText.text = $"Player {player.OwnerClientId}";
+            // Steam name varsa onu yaz, yoksa fallback
+            string steamName = player != null ? player.GetDisplayName() : "";
+            if (!string.IsNullOrWhiteSpace(steamName))
+                playerNameText.text = steamName;
+            else
+                playerNameText.text = $"Player {player.OwnerClientId}";
         }
+
+        gameObject.SetActive(true);
+    }
+
+    // âœ… Eski kodlarÄ±n Ã§aÄŸÄ±rÄ±yor olabilir: slot.SetName("Ege")
+    public void SetName(string name)
+    {
+        if (playerNameText != null)
+            playerNameText.text = string.IsNullOrWhiteSpace(name) ? "Empty" : name;
 
         gameObject.SetActive(true);
     }
@@ -33,7 +46,7 @@ public class LobbySlotUI : MonoBehaviour
         if (playerNameText != null)
             playerNameText.text = "Empty";
 
-        gameObject.SetActive(true); // boþ slot yine görünsün
+        gameObject.SetActive(true);
     }
 
     public bool IsEmpty()

@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+ï»¿using System.Collections.Generic;
 using TMPro;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
@@ -12,16 +12,17 @@ public class SteamLobbyUI : MonoBehaviour
     [SerializeField] private string lobbySceneName = "Lobby";
 
     [Header("UI")]
-    [SerializeField] private TMP_Text statusText;                 // opsiyonel
-    [SerializeField] private RectTransform listContent;           // ScrollView/Viewport/Content
-    [SerializeField] private SteamLobbyRowUI rowPrefab;           // SteamLobbyRow prefab
-    [SerializeField] private GameObject emptyHint;                // opsiyonel
+    [SerializeField] private TMP_Text statusText;
+    [SerializeField] private RectTransform listContent;
+    [SerializeField] private SteamLobbyRowUI rowPrefab;
+    [SerializeField] private GameObject emptyHint;
 
     [Header("Filters")]
     [SerializeField] private string gameTagKey = "game_tag";
     [SerializeField] private string gameTagValue = "LootOrBoot";
     [SerializeField] private string hostIpKey = "host_ip";
     [SerializeField] private string hostPortKey = "host_port";
+    [SerializeField] private string hostNameKey = "host_name";
     [SerializeField] private int maxResults = 50;
 
     [Header("Ports (Netcode/UTP)")]
@@ -30,17 +31,11 @@ public class SteamLobbyUI : MonoBehaviour
     private enum ListMode { Public, FriendsOnly }
     private ListMode _mode = ListMode.Public;
 
-    // Public list
     private readonly List<CSteamID> _currentList = new();
-
-    // Friends list (friendId -> lobbyId)
-    private readonly Dictionary<CSteamID, CSteamID> _friendLobbyMap = new();
-    private readonly HashSet<ulong> _friendLobbyUnique = new();
 
     private Callback<LobbyCreated_t> _cbLobbyCreated;
     private Callback<LobbyEnter_t> _cbLobbyEnter;
     private Callback<LobbyMatchList_t> _cbLobbyMatchList;
-    private Callback<LobbyDataUpdate_t> _cbLobbyDataUpdate;
 
     private CSteamID _pendingJoinLobby;
 
@@ -49,7 +44,6 @@ public class SteamLobbyUI : MonoBehaviour
         _cbLobbyCreated = Callback<LobbyCreated_t>.Create(OnLobbyCreated);
         _cbLobbyEnter = Callback<LobbyEnter_t>.Create(OnLobbyEnter);
         _cbLobbyMatchList = Callback<LobbyMatchList_t>.Create(OnLobbyMatchList);
-        _cbLobbyDataUpdate = Callback<LobbyDataUpdate_t>.Create(OnLobbyDataUpdate);
     }
 
     public void AutoRefreshIfPossible()
@@ -58,41 +52,38 @@ public class SteamLobbyUI : MonoBehaviour
         OnClickRefreshLobbies();
     }
 
-    // UI Button: "Create Lobby STEAM"
     public void OnClickCreateLobbySteam()
     {
         if (!SteamBootstrapper.IsReady)
         {
-            SetStatus("Steam hazýr deðil. Steam açýk mý? (steam_appid.txt=480)");
+            SetStatus("Steam hazÄ±r deÄŸil. Steam aÃ§Ä±k mÄ±? (steam_appid.txt=480)");
             return;
         }
 
-        SetStatus("Steam lobby oluþturuluyor...");
+        SteamSession.SetSteamEnabled(true);
+        SteamSession.SetLocalNameFromSteam();
+
+        SetStatus("Steam lobby oluÅŸturuluyor...");
         SteamMatchmaking.CreateLobby(ELobbyType.k_ELobbyTypePublic, 4);
     }
 
-    // UI Button: "Refresh" (public list)
     public void OnClickRefreshLobbies()
     {
         _mode = ListMode.Public;
-        RequestPublicLobbyList();
+        RequestLobbyList();
     }
 
-    // UI Button: "Join Friend" (arkadaþ lobileri)
     public void OnClickJoinFriend()
     {
         _mode = ListMode.FriendsOnly;
-        RequestFriendsLobbyList();
+        RequestLobbyList();
     }
 
-    // -------------------------
-    // PUBLIC LOBBY LIST
-    // -------------------------
-    private void RequestPublicLobbyList()
+    private void RequestLobbyList()
     {
         if (!SteamBootstrapper.IsReady)
         {
-            SetStatus("Steam hazýr deðil.");
+            SetStatus("Steam hazÄ±r deÄŸil.");
             return;
         }
 
@@ -101,21 +92,20 @@ public class SteamLobbyUI : MonoBehaviour
 
         SteamMatchmaking.AddRequestLobbyListResultCountFilter(maxResults);
 
-        // Sadece bizim oyun lobileri (tag)
+        // Only our game
         SteamMatchmaking.AddRequestLobbyListStringFilter(
-            gameTagKey, gameTagValue, ELobbyComparison.k_ELobbyComparisonEqual);
+            gameTagKey, gameTagValue,
+            ELobbyComparison.k_ELobbyComparisonEqual
+        );
 
-        SteamMatchmaking.AddRequestLobbyListDistanceFilter(
-            ELobbyDistanceFilter.k_ELobbyDistanceFilterWorldwide);
+        SteamMatchmaking.AddRequestLobbyListDistanceFilter(ELobbyDistanceFilter.k_ELobbyDistanceFilterWorldwide);
 
-        SetStatus("Public lobby listesi alýnýyor...");
+        SetStatus(_mode == ListMode.FriendsOnly ? "ArkadaÅŸ lobileri (sÃ¼zme) aranÄ±yor..." : "Public lobby listesi alÄ±nÄ±yor...");
         SteamMatchmaking.RequestLobbyList();
     }
 
     private void OnLobbyMatchList(LobbyMatchList_t cb)
     {
-        if (_mode != ListMode.Public) return;
-
         int count = (int)cb.m_nLobbiesMatching;
         SetStatus($"Bulunan lobby: {count}");
 
@@ -128,121 +118,55 @@ public class SteamLobbyUI : MonoBehaviour
         }
         if (emptyHint != null) emptyHint.SetActive(false);
 
-        EnsureListRefs();
+        if (listContent == null || rowPrefab == null)
+        {
+            Debug.LogError("[SteamLobbyUI] listContent veya rowPrefab atanmadÄ±!");
+            return;
+        }
+
+        int shown = 0;
 
         for (int i = 0; i < count; i++)
         {
             CSteamID lobbyId = SteamMatchmaking.GetLobbyByIndex(i);
+
+            // FriendsOnly modunda: lobby owner friend deÄŸilse geÃ§
+            if (_mode == ListMode.FriendsOnly)
+            {
+                CSteamID owner = SteamMatchmaking.GetLobbyOwner(lobbyId);
+                var rel = SteamFriends.GetFriendRelationship(owner);
+                if (rel != EFriendRelationship.k_EFriendRelationshipFriend)
+                    continue;
+            }
+
             _currentList.Add(lobbyId);
 
-            CreateRowForLobby(lobbyId, preferFriendOwnerName: false);
-        }
-    }
+            string hostIp = SteamMatchmaking.GetLobbyData(lobbyId, hostIpKey);
+            string hostPortStr = SteamMatchmaking.GetLobbyData(lobbyId, hostPortKey);
 
-    // -------------------------
-    // FRIEND LOBBY LIST
-    // (Steamworks.NET doðru yolu)
-    // -------------------------
-    private void RequestFriendsLobbyList()
-    {
-        if (!SteamBootstrapper.IsReady)
-        {
-            SetStatus("Steam hazýr deðil.");
-            return;
-        }
+            string hostName = SteamMatchmaking.GetLobbyData(lobbyId, hostNameKey);
+            if (string.IsNullOrWhiteSpace(hostName))
+            {
+                string ownerName = SteamFriends.GetFriendPersonaName(SteamMatchmaking.GetLobbyOwner(lobbyId));
+                hostName = ownerName;
+            }
 
-        ClearRows();
-        if (emptyHint != null) emptyHint.SetActive(false);
-        EnsureListRefs();
+            int members = SteamMatchmaking.GetNumLobbyMembers(lobbyId);
 
-        _friendLobbyMap.Clear();
-        _friendLobbyUnique.Clear();
-
-        // Arkadaþlarým arasýnda “bu oyunu oynayan ve lobby’de olanlar”
-        int friendCount = SteamFriends.GetFriendCount(EFriendFlags.k_EFriendFlagImmediate);
-
-        SetStatus("Arkadaþ lobileri taranýyor...");
-
-        for (int i = 0; i < friendCount; i++)
-        {
-            CSteamID friendId = SteamFriends.GetFriendByIndex(i, EFriendFlags.k_EFriendFlagImmediate);
-
-            if (!SteamFriends.GetFriendGamePlayed(friendId, out FriendGameInfo_t gameInfo))
-                continue;
-
-            // Bu oyun mu? (appid 480 testte de çalýþýr)
-            if (!IsSameGame(gameInfo))
-                continue;
-
-            // Lobby var mý?
-            CSteamID lobbyId = gameInfo.m_steamIDLobby;
-            if (lobbyId == CSteamID.Nil)
-                continue;
-
-            // Duplicate engelle
-            if (!_friendLobbyUnique.Add(lobbyId.m_SteamID))
-                continue;
-
-            _friendLobbyMap[friendId] = lobbyId;
-
-            // Lobby data (tag/ip/port) çekmek için
-            SteamMatchmaking.RequestLobbyData(lobbyId);
+            var row = Instantiate(rowPrefab, listContent);
+            row.Bind(hostName, members, hostIp, hostPortStr, () => JoinLobby(lobbyId));
+            shown++;
         }
 
-        // Eðer hiç aday yoksa hemen empty
-        if (_friendLobbyMap.Count == 0)
-        {
-            SetStatus("Arkadaþ lobisi bulunamadý.");
-            if (emptyHint != null) emptyHint.SetActive(true);
-        }
+        if (_mode == ListMode.FriendsOnly)
+            SetStatus($"ArkadaÅŸ lobileri: {shown}");
     }
 
-    private bool IsSameGame(FriendGameInfo_t info)
-    {
-        // Steamworks.NET’te m_gameID GameID struct.
-        // AppId ile eþleþtirelim.
-        uint myAppId = SteamUtils.GetAppID().m_AppId;
-
-        // GameID -> AppID
-        // (GameID.ToString vs farklý olabilir, en saðlamý: info.m_gameID.AppID())
-        uint friendAppId = info.m_gameID.AppID().m_AppId;
-
-        return friendAppId == myAppId;
-    }
-
-    private void OnLobbyDataUpdate(LobbyDataUpdate_t cb)
-    {
-        if (_mode != ListMode.FriendsOnly) return;
-
-        CSteamID lobbyId = new CSteamID(cb.m_ulSteamIDLobby);
-
-        // Bu lobby, bizim friend scan’de var mý?
-        if (!_friendLobbyUnique.Contains(lobbyId.m_SteamID))
-            return;
-
-        // Sadece bizim oyun lobileri (tag filter)
-        string tag = SteamMatchmaking.GetLobbyData(lobbyId, gameTagKey);
-        if (tag != gameTagValue)
-            return;
-
-        // Satýr bas
-        CreateRowForLobby(lobbyId, preferFriendOwnerName: true);
-
-        // UI empty kapat
-        if (emptyHint != null) emptyHint.SetActive(false);
-
-        // Status
-        SetStatus($"Friend lobbies: {listContent.childCount}");
-    }
-
-    // -------------------------
-    // JOIN / HOST
-    // -------------------------
     private void JoinLobby(CSteamID lobbyId)
     {
         if (!SteamBootstrapper.IsReady)
         {
-            SetStatus("Steam hazýr deðil.");
+            SetStatus("Steam hazÄ±r deÄŸil.");
             return;
         }
 
@@ -264,9 +188,19 @@ public class SteamLobbyUI : MonoBehaviour
             return;
         }
 
-        // Host connection info al
+        SteamSession.SetSteamEnabled(true);
+        SteamSession.SetLocalNameFromSteam();
+
+        // Host info
         string hostIp = SteamMatchmaking.GetLobbyData(lobbyId, hostIpKey);
         string hostPortStr = SteamMatchmaking.GetLobbyData(lobbyId, hostPortKey);
+
+        // Host name
+        string hostName = SteamMatchmaking.GetLobbyData(lobbyId, hostNameKey);
+        if (string.IsNullOrWhiteSpace(hostName))
+            hostName = SteamFriends.GetFriendPersonaName(SteamMatchmaking.GetLobbyOwner(lobbyId));
+
+        SteamSession.SetLobby(lobbyId, hostName);
 
         if (string.IsNullOrWhiteSpace(hostIp) ||
             string.IsNullOrWhiteSpace(hostPortStr) ||
@@ -276,7 +210,7 @@ public class SteamLobbyUI : MonoBehaviour
             return;
         }
 
-        SetStatus($"Baðlanýyor: {hostIp}:{hostPort}");
+        SetStatus($"BaÄŸlanÄ±yor: {hostIp}:{hostPort}");
         StartNgoClient(hostIp, hostPort);
     }
 
@@ -284,22 +218,32 @@ public class SteamLobbyUI : MonoBehaviour
     {
         if (cb.m_eResult != EResult.k_EResultOK)
         {
-            SetStatus("Lobby oluþturulamadý.");
+            SetStatus("Lobby oluÅŸturulamadÄ±.");
             return;
         }
 
         CSteamID lobbyId = new CSteamID(cb.m_ulSteamIDLobby);
 
-        // Lobby data set
+        SteamSession.SetSteamEnabled(true);
+        SteamSession.SetLocalNameFromSteam();
+
+        string hostName = SteamSession.LocalPlayerName;
+        if (string.IsNullOrWhiteSpace(hostName))
+            hostName = SteamFriends.GetPersonaName();
+
+        SteamSession.SetLobby(lobbyId, hostName);
+
         SteamMatchmaking.SetLobbyData(lobbyId, gameTagKey, gameTagValue);
 
-        string myIp = LanIpUtil.GetLocalIPv4(); // mevcut yapýyý bozmadan
+        string myIp = LanIpUtil.GetLocalIPv4();
         SteamMatchmaking.SetLobbyData(lobbyId, hostIpKey, myIp);
         SteamMatchmaking.SetLobbyData(lobbyId, hostPortKey, gamePort.ToString());
 
+        SteamMatchmaking.SetLobbyData(lobbyId, hostNameKey, hostName);
+
         StartNgoHost();
 
-        SetStatus($"Lobby oluþturuldu. Host: {myIp}:{gamePort}");
+        SetStatus($"Lobby oluÅŸturuldu. Host: {hostName} / {myIp}:{gamePort}");
     }
 
     private void StartNgoHost()
@@ -320,7 +264,7 @@ public class SteamLobbyUI : MonoBehaviour
         }
         else
         {
-            SetStatus("Host baþlatýlamadý (NGO).");
+            SetStatus("Host baÅŸlatÄ±lamadÄ± (NGO).");
         }
     }
 
@@ -335,7 +279,7 @@ public class SteamLobbyUI : MonoBehaviour
         var utp = GetTransport();
         if (utp == null)
         {
-            SetStatus("UnityTransport bulunamadý.");
+            SetStatus("UnityTransport bulunamadÄ±.");
             return;
         }
 
@@ -343,7 +287,7 @@ public class SteamLobbyUI : MonoBehaviour
 
         if (!NetworkManager.Singleton.StartClient())
         {
-            SetStatus("Client baþlatýlamadý (NGO).");
+            SetStatus("Client baÅŸlatÄ±lamadÄ± (NGO).");
         }
     }
 
@@ -357,41 +301,10 @@ public class SteamLobbyUI : MonoBehaviour
         return NetworkManager.Singleton.GetComponent<UnityTransport>();
     }
 
-    // -------------------------
-    // UI HELPERS
-    // -------------------------
-    private void EnsureListRefs()
-    {
-        if (listContent == null || rowPrefab == null)
-        {
-            Debug.LogError("[SteamLobbyUI] listContent veya rowPrefab atanmadý!");
-        }
-    }
-
-    private void CreateRowForLobby(CSteamID lobbyId, bool preferFriendOwnerName)
-    {
-        EnsureListRefs();
-        if (listContent == null || rowPrefab == null) return;
-
-        // Tag filtre: güvenlik (public list zaten filtreli)
-        string tag = SteamMatchmaking.GetLobbyData(lobbyId, gameTagKey);
-        if (tag != gameTagValue) return;
-
-        string hostIp = SteamMatchmaking.GetLobbyData(lobbyId, hostIpKey);
-        string hostPortStr = SteamMatchmaking.GetLobbyData(lobbyId, hostPortKey);
-
-        var owner = SteamMatchmaking.GetLobbyOwner(lobbyId);
-        string ownerName = SteamFriends.GetFriendPersonaName(owner);
-
-        int members = SteamMatchmaking.GetNumLobbyMembers(lobbyId);
-
-        var row = Instantiate(rowPrefab, listContent);
-        row.Bind(ownerName, members, hostIp, hostPortStr, () => JoinLobby(lobbyId));
-    }
-
     private void ClearRows()
     {
         if (listContent == null) return;
+
         for (int i = listContent.childCount - 1; i >= 0; i--)
             Destroy(listContent.GetChild(i).gameObject);
     }
@@ -400,5 +313,11 @@ public class SteamLobbyUI : MonoBehaviour
     {
         if (statusText != null) statusText.text = msg;
         Debug.Log("[SteamLobbyUI] " + msg);
+    }
+
+    // EÄŸer bir yerde AppId_t -> uint lazÄ±msa:
+    private static uint GetAppIdUInt()
+    {
+        return SteamUtils.GetAppID().m_AppId;
     }
 }

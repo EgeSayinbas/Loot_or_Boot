@@ -15,7 +15,7 @@ public class SteamLobbyRowUI : MonoBehaviour
         _onJoin = onJoin;
 
         if (txtPlayerName != null)
-            txtPlayerName.text = $"{ownerName} ({members}/4)  {hostIp}:{hostPort}";
+            txtPlayerName.text = $"{ownerName}  ({members}/4)  {hostIp}:{hostPort}";
 
         if (btnJoin != null)
         {

@@ -273,8 +273,9 @@ MonoBehaviour:
   gameTagValue: LootOrBoot
   hostIpKey: host_ip
   hostPortKey: host_port
-  gamePort: 7777
+  hostNameKey: host_name
   maxResults: 50
+  gamePort: 7777
 --- !u!1 &41567600
 GameObject:
   m_ObjectHideFlags: 0
@@ -4319,9 +4320,9 @@ RectTransform:
   - {fileID: 770807501}
   - {fileID: 767309094}
   - {fileID: 1298856356}
-  - {fileID: 43891830}
   - {fileID: 1652018761}
   - {fileID: 39793260}
+  - {fileID: 43891830}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}

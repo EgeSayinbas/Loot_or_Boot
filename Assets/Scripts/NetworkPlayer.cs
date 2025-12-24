@@ -1,7 +1,8 @@
-using UnityEngine;
+ï»¿using UnityEngine;
 using Unity.Netcode;
+using Unity.Collections;
 
-// Ayrý Team.cs kullanmýyoruz; enum burada dursun
+// AyrÄ± Team.cs kullanmÄ±yoruz; enum burada dursun
 public enum Team
 {
     None,
@@ -12,14 +13,14 @@ public enum Team
 public class NetworkPlayer : NetworkBehaviour
 {
     [Header("Camera / Head")]
-    [SerializeField] private Camera playerCamera;          // PlayerCamera child
-    [SerializeField] private AudioListener audioListener;  // PlayerCamera üstündeki
-    [SerializeField] private Transform cameraPivot;        // CameraPivot
-    [SerializeField] private Transform headAim;            // HeadAim (rig içinde)
+    [SerializeField] private Camera playerCamera;
+    [SerializeField] private AudioListener audioListener;
+    [SerializeField] private Transform cameraPivot;
+    [SerializeField] private Transform headAim;
 
     [Header("Hand Slots (Player Prefab)")]
-    [SerializeField] private Transform handSlotRoot;       // HandR_CardSlotRoot
-    [SerializeField] private Transform[] handSlots = new Transform[4]; // HandR_CardSlot_0..3
+    [SerializeField] private Transform handSlotRoot;
+    [SerializeField] private Transform[] handSlots = new Transform[4];
 
     public Transform CameraPivot => cameraPivot;
     public Transform HeadAim => headAim;
@@ -33,7 +34,20 @@ public class NetworkPlayer : NetworkBehaviour
 
     public static NetworkPlayer Local { get; private set; }
 
-    // ==== Lobby / Takým Bilgileri ====
+    // ==== Steam Display Name (SYNC) ====
+    public NetworkVariable<FixedString64Bytes> PlayerSteamName = new NetworkVariable<FixedString64Bytes>(
+        default,
+        NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Server
+    );
+
+    public string GetDisplayName()
+    {
+        var s = PlayerSteamName.Value.ToString();
+        return string.IsNullOrWhiteSpace(s) ? "" : s;
+    }
+
+    // ==== Lobby / TakÄ±m Bilgileri ====
     public NetworkVariable<Team> PlayerTeam = new NetworkVariable<Team>(
         Team.None,
         NetworkVariableReadPermission.Everyone,
@@ -58,16 +72,10 @@ public class NetworkPlayer : NetworkBehaviour
         NetworkVariableWritePermission.Server
     );
 
-
-   
-    // ===========================
-    //  LIFECYCLE
-    // ===========================
     public override void OnNetworkSpawn()
     {
         base.OnNetworkSpawn();
 
-        // Referanslarý inspector’da atamadýysan güvence olsun
         if (playerCamera == null)
             playerCamera = GetComponentInChildren<Camera>(true);
 
@@ -75,12 +83,11 @@ public class NetworkPlayer : NetworkBehaviour
             audioListener = playerCamera.GetComponent<AudioListener>();
 
         if (cameraPivot == null && playerCamera != null)
-            cameraPivot = playerCamera.transform.parent; // PlayerCamera parent = CameraPivot
+            cameraPivot = playerCamera.transform.parent;
 
         if (headAim == null)
             headAim = FindDeepChild(transform, "HeadAim");
 
-        // Hand slot root + 0..3 bul
         if (handSlotRoot == null)
             handSlotRoot = FindDeepChild(transform, "HandR_CardSlotRoot");
 
@@ -97,13 +104,15 @@ public class NetworkPlayer : NetworkBehaviour
         {
             Local = this;
             EnableLocalCamera(true);
+
+            // Owner kendi ismini server'a gÃ¶nderir (Steam moddaysa)
+            TrySendMyNameToServer();
         }
         else
         {
             EnableLocalCamera(false);
         }
 
-        // Ýlk host kendini host olarak iþaretlesin
         if (IsServer && OwnerClientId == NetworkManager.Singleton.LocalClientId)
         {
             IsHostPlayer.Value = true;
@@ -111,12 +120,31 @@ public class NetworkPlayer : NetworkBehaviour
             if (LobbyManager.Instance != null)
                 LobbyManager.Instance.RefreshUIClientRpc();
         }
+
+        // Ä°sim deÄŸiÅŸince UI yenilemek istersen:
+        PlayerSteamName.OnValueChanged += (_, __) =>
+        {
+            if (LobbyManager.Instance != null)
+                LobbyManager.Instance.RefreshUIClientRpc();
+        };
     }
 
     protected new void OnDestroy()
     {
         if (Local == this)
             Local = null;
+    }
+
+    private void TrySendMyNameToServer()
+    {
+        // SteamSession Local name hazÄ±rla
+        if (SteamSession.IsSteam)
+            SteamSession.SetLocalNameFromSteam();
+
+        string name = SteamSession.IsSteam ? SteamSession.LocalPlayerName : "";
+
+        if (!string.IsNullOrWhiteSpace(name))
+            SubmitMyDisplayNameServerRpc(name);
     }
 
     private void EnableLocalCamera(bool enable)
@@ -128,7 +156,6 @@ public class NetworkPlayer : NetworkBehaviour
             audioListener.enabled = enable;
     }
 
-    // Derin child arama (name ile)
     private static Transform FindDeepChild(Transform parent, string name)
     {
         if (parent == null) return null;
@@ -151,7 +178,7 @@ public class NetworkPlayer : NetworkBehaviour
     public void RequestChangeTeamServerRpc(Team newTeam, ServerRpcParams rpcParams = default)
     {
         PlayerTeam.Value = newTeam;
-        IsReady.Value = false; // takým deðiþince ready sýfýrlansýn
+        IsReady.Value = false;
 
         if (LobbyManager.Instance != null)
             LobbyManager.Instance.RefreshUIClientRpc();
@@ -166,5 +193,19 @@ public class NetworkPlayer : NetworkBehaviour
             LobbyManager.Instance.RefreshUIClientRpc();
     }
 
-  
+    // ===========================
+    //  Avoid extra dependencies: name submit
+    // ===========================
+    [ServerRpc]
+    private void SubmitMyDisplayNameServerRpc(string name, ServerRpcParams rpcParams = default)
+    {
+        // Basit sanitize
+        if (string.IsNullOrWhiteSpace(name)) return;
+        if (name.Length > 32) name = name.Substring(0, 32);
+
+        PlayerSteamName.Value = new FixedString64Bytes(name);
+
+        if (LobbyManager.Instance != null)
+            LobbyManager.Instance.RefreshUIClientRpc();
+    }
 }

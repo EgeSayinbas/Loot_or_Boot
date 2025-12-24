@@ -3160,6 +3160,7 @@ GameObject:
   - component: {fileID: 1578874737}
   - component: {fileID: 1578874739}
   - component: {fileID: 1578874738}
+  - component: {fileID: 1578874740}
   m_Layer: 5
   m_Name: HostIP
   m_TagString: Untagged
@@ -3183,8 +3184,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 38, y: -0.000061035156}
-  m_SizeDelta: {x: 600, y: 50}
+  m_AnchoredPosition: {x: 0.9879, y: -0.000061035156}
+  m_SizeDelta: {x: 525.9757, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1578874738
 MonoBehaviour:
@@ -3286,6 +3287,19 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1578874736}
   m_CullTransparentMesh: 1
+--- !u!114 &1578874740
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1578874736}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 14da016ce3cd1864785030d9875236f1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::LobbyHeaderSteamName
+  headerText: {fileID: 1578874738}
 --- !u!1 &1589906142
 GameObject:
   m_ObjectHideFlags: 0
@@ -4662,15 +4676,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4090987031127480845, guid: 8de274dd177ae6443a817fbe63260913, type: 3}
       propertyPath: m_AnchorMax.x
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 4090987031127480845, guid: 8de274dd177ae6443a817fbe63260913, type: 3}
       propertyPath: m_AnchorMax.y
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 4090987031127480845, guid: 8de274dd177ae6443a817fbe63260913, type: 3}
       propertyPath: m_AnchorMin.x
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 4093040334560020388, guid: 8de274dd177ae6443a817fbe63260913, type: 3}
       propertyPath: m_Color.a
@@ -4850,15 +4864,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7091707702055617704, guid: 8de274dd177ae6443a817fbe63260913, type: 3}
       propertyPath: m_IsActive
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 9051687518117014101, guid: 8de274dd177ae6443a817fbe63260913, type: 3}
       propertyPath: m_AnchorMax.x
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 9051687518117014101, guid: 8de274dd177ae6443a817fbe63260913, type: 3}
       propertyPath: m_AnchorMax.y
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects:

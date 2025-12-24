@@ -9,9 +9,13 @@ public class LobbyHostIpDisplay : MonoBehaviour
     {
         if (txtHostIp == null) return;
 
-        // Host da client da aynı yerden okuyor:
-        // Host: KempsSession.LobbyId = host code
-        // Client: KempsSession.LobbyId = join input code
+        // 🔥 Steam moddaysak bu script devre dışı
+        if (SteamSession.IsSteam)
+        {
+            return;
+        }
+
+        // LAN sistemi aynen korunuyor
         string code = KempsSession.LobbyId;
 
         if (string.IsNullOrWhiteSpace(code))
