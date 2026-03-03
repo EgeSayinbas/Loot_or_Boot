@@ -6,11 +6,11 @@ Gameplay Trailer: https://www.youtube.com/watch?v=e4cN7flZe8w
 
 This repository contains an ongoing multiplayer tabletop card game project developed in Unity using Netcode for GameObjects (NGO).
 
-The core goal of the project is to translate a real-world team-based card game experience into a networked 3D digital environment, preserving player interaction, signaling, and spatial awareness.
+The core goal of the project is to translate a real world team based card game experience into a networked 3D digital environment, preserving player interaction, signaling, and spatial awareness.
 
 🎯 Project Vision
 
-The game focuses on non-verbal player communication in a multiplayer card game setting.
+The game focuses on non verbal player communication in a multiplayer card game setting.
 Players sit around a virtual table and interact through:
 
 Eye direction & head movement
@@ -19,7 +19,7 @@ Card placement and swapping
 
 Team-based visual signaling
 
-Real-time synchronized interactions
+Real time synchronized interactions
 
 Rather than relying on chat or explicit UI cues, the project experiments with physical and spatial signaling mechanics inspired by real tabletop play.
 
@@ -53,7 +53,7 @@ Gameplay: 3D card objects (not UI-based cards)
 
 Architecture: Server-authoritative logic
 
-Input: Mouse-based interaction (expandable)
+Input: Mouse based interaction (expandable)
 
 Version Control: Git / GitHub
 
@@ -81,7 +81,7 @@ Round system & scoring
 
 Anti-cheat validation
 
-Polished game-state transitions
+Polished game state transitions
 
 Visual feedback for team signaling
 
@@ -91,7 +91,7 @@ UX & interaction refinements
 
 This repo acts as:
 
-A long-term project foundation
+A long term project foundation
 
 A development checkpoint for experimentation
 
