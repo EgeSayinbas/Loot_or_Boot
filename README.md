@@ -1,3 +1,6 @@
+Cinematic Trailer: https://www.youtube.com/watch?v=Bf7uq9-B2pc
+Gameplay Trailer: https://www.youtube.com/watch?v=e4cN7flZe8w
+
 🎴 Multiplayer 3D Card Game (Unity – Netcode for GameObjects)
 
 This repository contains an ongoing multiplayer tabletop card game project developed in Unity using Netcode for GameObjects (NGO).
